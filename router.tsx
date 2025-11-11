@@ -8,6 +8,8 @@ import CourseOverviewPage from './pages/CourseOverviewPage';
 import LessonPage from './pages/LessonPage';
 import BrowsePage from './pages/BrowsePage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
+import ManageVpsPage from './pages/ManageVpsPage';
+import ManageWordPressPage from './pages/ManageWordPressPage';
 
 import AdminLayout from './pages/admin/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
@@ -15,6 +17,7 @@ import EditMainPage from './pages/admin/EditMainPage';
 import ManageUsersPage from './pages/admin/ManageUsersPage';
 import ManageCoursesPage from './pages/admin/ManageCoursesPage';
 import ManageApisPage from './pages/admin/ManageApisPage';
+import ManagePromptsPage from './pages/admin/ManagePromptsPage';
 import CourseContentEditorPage from './pages/admin/CourseContentEditorPage'; // Import the new page
 
 import ProtectedRoute from './src/ProtectedRoute';
@@ -48,6 +51,14 @@ const router = createBrowserRouter([
             {
                 path: 'account-settings',
                 element: <AccountSettingsPage />,
+            },
+            {
+                path: 'manage-vps',
+                element: <ManageVpsPage />,
+            },
+            {
+                path: 'manage-wordpress',
+                element: <ManageWordPressPage />,
             },
         ],
     },
@@ -86,6 +97,10 @@ const router = createBrowserRouter([
             {
                 path: 'manage-apis',
                 element: <ManageApisPage />,
+            },
+            {
+                path: 'manage-prompts',
+                element: <ManagePromptsPage />,
             },
             {
                 path: 'editor/curso/:courseId',

@@ -10,6 +10,7 @@ const AdminHeader: React.FC = () => {
         { path: '/admin/manage-users', label: 'Manage Users' },
         { path: '/admin/manage-courses', label: 'Manage Courses' },
         { path: '/admin/manage-apis', label: 'Manage APIs' },
+        { path: '/admin/manage-prompts', label: 'Manage Prompts' },
     ];
 
     const linkClasses = "cursor-pointer transition hover:text-gray-300";

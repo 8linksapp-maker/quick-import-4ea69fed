@@ -1,0 +1,14 @@
+{
+  "name": "ssh-service",
+  "version": "1.0.0",
+  "description": "A proxy service to handle SSH commands.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "ssh2": "^1.11.0"
+  }
+}
