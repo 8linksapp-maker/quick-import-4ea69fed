@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../src/supabaseClient';
 import InputField from '../components/InputField';
 import VpsCard, { VpsData } from '../components/VpsCard';
@@ -168,7 +168,11 @@ const ManageVpsPage = () => {
             <h3 className="text-lg font-semibold text-white mt-4">Adicionar Novo VPS</h3>
             <p className="text-sm text-gray-500">Conectar um novo servidor</p>
           </div>
-          {filteredVpsList.map(vps => <VpsCard key={vps.id} vps={vps} onDelete={() => handleDeleteVps(vps.id)} onEdit={() => handleEditVps(vps)} />)}
+          {filteredVpsList.map(vps => (
+            <Link to={`/vps/${vps.id}`} key={vps.id} className="no-underline">
+              <VpsCard vps={vps} onDelete={() => handleDeleteVps(vps.id)} onEdit={() => handleEditVps(vps)} />
+            </Link>
+          ))}
         </div>
       </div>
     );

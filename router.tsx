@@ -10,6 +10,7 @@ import BrowsePage from './pages/BrowsePage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import ManageVpsPage from './pages/ManageVpsPage';
 import ManageWordPressPage from './pages/ManageWordPressPage';
+import VpsDetailsPage from './pages/VpsDetailsPage';
 
 import AdminLayout from './pages/admin/AdminLayout';
 import DashboardPage from './pages/admin/DashboardPage';
@@ -55,6 +56,10 @@ const router = createBrowserRouter([
             {
                 path: 'manage-vps',
                 element: <ManageVpsPage />,
+            },
+            {
+                path: 'vps/:vpsId',
+                element: <VpsDetailsPage />,
             },
             {
                 path: 'manage-wordpress',
