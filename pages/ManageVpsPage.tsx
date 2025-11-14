@@ -166,44 +166,7 @@ const ActionCard = ({ title, onClick, loading = false }) => (
     </div>
 );
 
-const SiteCreationStatus = ({ domain, status, error }) => {
-    let statusInfo = {
-        color: 'blue',
-        text: `Criando site ${domain}...`,
-        icon: <LoadingSpinner />
-    };
 
-    if (status === 'completed') {
-        statusInfo = {
-            color: 'green',
-            text: `Site ${domain} criado com sucesso!`,
-            icon: <CheckCircleIcon />
-        };
-    } else if (status === 'failed') {
-        statusInfo = {
-            color: 'red',
-            text: `Falha ao criar o site ${domain}.`,
-            icon: <XCircleIcon />
-        };
-    }
-
-    return (
-        <div className={`bg-${statusInfo.color}-900/30 border border-${statusInfo.color}-500 rounded-lg p-4 mb-6 animate-fade-in`}>
-            <div className="flex items-center">
-                <div className={`mr-4 text-${statusInfo.color}-400`}>{statusInfo.icon}</div>
-                <div>
-                    <p className={`font-semibold text-lg text-${statusInfo.color}-300`}>{statusInfo.text}</p>
-                    {status === 'creating' && (
-                        <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
-                            <div className="bg-blue-600 h-2.5 rounded-full animate-pulse" style={{ width: '100%' }}></div>
-                        </div>
-                    )}
-                    {error && <p className="text-red-400 text-sm mt-2 bg-red-900/50 p-2 rounded">{error}</p>}
-                </div>
-            </div>
-        </div>
-    );
-};
 
 const SiteCreationStatus = ({ domain, status, error, warning, progress }) => {
     let statusInfo = {
