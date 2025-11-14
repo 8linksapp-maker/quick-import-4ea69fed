@@ -279,31 +279,28 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     
         const progressInterval = setInterval(() => {
             setSiteCreation(prev => {
-                if (!prev) return null;
-                const newProgress = Math.min(prev.progress + 1, 90); // Simulate progress up to 90%
+                if (!prev) {
+                    clearInterval(progressInterval);
+                    return null;
+                }
+                const newProgress = Math.min(prev.progress + 1, 90);
                 return { ...prev, progress: newProgress };
             });
-        }, 800); // ~72 seconds to reach 90%
+        }, 800);
     
-        try {
-            const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
-                body: { vpsId: vps.id, domain, user, pass, email },
-            });
+        const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
+            body: { vpsId: vps.id, domain, user, pass, email },
+        });
     
-            clearInterval(progressInterval);
+        clearInterval(progressInterval);
 
-            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
-            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
-    
-            setSiteCreation({ domain, status: 'completed', progress: 100 });
-            fetchSites();
-    
-            setTimeout(() => setSiteCreation(null), 8000);
-    
-        } catch (err: any) {
-            clearInterval(progressInterval);
-            const errorMessage = err.message || '';
+        if (invokeError) {
+            setSiteCreation({ domain, status: 'failed', progress: 100, error: invokeError.message });
+            return;
+        }
 
+        if (data.error) {
+            const errorMessage = JSON.stringify(data.error);
             if (errorMessage.includes("Aborting SSL certificate issuance")) {
                 setSiteCreation({ 
                     domain, 
@@ -311,12 +308,17 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                     progress: 100,
                     warning: 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.' 
                 });
-                fetchSites(); // Refresh list because site was created
-                setTimeout(() => setSiteCreation(null), 15000); // Keep message longer
+                fetchSites();
+                setTimeout(() => setSiteCreation(null), 15000);
             } else {
                 setSiteCreation({ domain, status: 'failed', progress: 100, error: errorMessage });
             }
+            return;
         }
+    
+        setSiteCreation({ domain, status: 'completed', progress: 100 });
+        fetchSites();
+        setTimeout(() => setSiteCreation(null), 8000);
     };
 
     const processAction = async (action: string, params: any = {}) => {
