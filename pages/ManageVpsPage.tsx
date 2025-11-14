@@ -498,7 +498,7 @@ const EditVpsForm = ({ vps, onVpsUpdated, onCancel }) => {
         if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
         setMessage(data.message || 'VPS atualizado com sucesso!');
         setTimeout(() => onVpsUpdated(), 1500);
-      } catch (err: any)
+      } catch (err: any) {
         setError(err.message || 'Ocorreu um erro inesperado.');
       } finally {
         setLoading(false);
