@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../src/supabaseClient';
 import InputField from '../components/InputField';
@@ -61,6 +60,81 @@ const CreateSiteForm = ({ vpsId, onActionComplete, onCancel }) => {
     );
 };
 
+const InstallSslForm = ({ vpsId, onActionComplete, onCancel }) => {
+    const [domain, setDomain] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleInstallSsl = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke('install-ssl-site', {
+                body: { vpsId, domain },
+            });
+            if (invokeError) throw invokeError;
+            if (data.error) throw new Error(data.error);
+            onActionComplete(data.stdout || 'Comando executado, mas não houve output.');
+        } catch (err: any) {
+            setError(err.message || 'Ocorreu um erro inesperado.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleInstallSsl}>
+            <InputField label="Domínio do Site" id="sslDomain" type="text" value={domain} onChange={(e) => setDomain(e.target.value)} required />
+            <div className="flex justify-end items-center gap-4 mt-6">
+                <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
+                <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
+                    {loading ? 'Instalando SSL...' : 'Instalar SSL'}
+                </button>
+            </div>
+            {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
+        </form>
+    );
+};
+
+const ManageWpUsersForm = ({ vpsId, onActionComplete, onCancel }) => {
+    const [domain, setDomain] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleGetWpUsers = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke('get-wp-users', {
+                body: { vpsId, domain },
+            });
+            if (invokeError) throw invokeError;
+            if (data.error) throw new Error(data.error);
+            onActionComplete(JSON.stringify(data.users, null, 2) || 'Nenhum usuário encontrado ou output vazio.');
+        } catch (err: any) {
+            setError(err.message || 'Ocorreu um erro inesperado.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleGetWpUsers}>
+            <InputField label="Domínio do Site" id="wpUserDomain" type="text" value={domain} onChange={(e) => setDomain(e.target.value)} required />
+            <div className="flex justify-end items-center gap-4 mt-6">
+                <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
+                <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
+                    {loading ? 'Buscando Usuários...' : 'Listar Usuários'}
+                </button>
+            </div>
+            {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
+        </form>
+    );
+};
+
+
 const ActionCard = ({ title, onClick, loading = false }) => (
     <div 
       className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-700 hover:border-blue-500 transition-colors"
@@ -73,7 +147,7 @@ const ActionCard = ({ title, onClick, loading = false }) => (
     </div>
 );
 
-const VpsControlPanel = ({ vps, onBack }) => {
+const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -96,19 +170,26 @@ const VpsControlPanel = ({ vps, onBack }) => {
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
 
-    const handleAction = async (action: string, params: any = {}) => {
+    const handleAction = async (action: string, params: any = {}, confirmMessage?: string) => {
+        if (confirmMessage && !window.confirm(confirmMessage)) {
+            return;
+        }
+
         setActionLoading(action);
         setError(null);
         try {
             const { data, error: invokeError } = await supabase.functions.invoke(action, { body: { vpsId: vps.id, ...params } });
             if (invokeError) throw invokeError;
             if (data.error) throw new Error(data.error);
-            setOutput(data.stdout || 'Ação concluída com sucesso.');
+            setOutput(data.stdout || data.message || JSON.stringify(data, null, 2) || 'Ação concluída com sucesso.');
+            if (action === 'delete-vps-credentials') {
+                onVpsDeleted(); // Notify parent to go back to list
+            }
         } catch (err: any) {
             setOutput(`Erro ao executar a ação: ${err.message}`);
         } finally {
             setActionLoading(null);
-            if (action === 'install-wordops') checkWoStatus();
+            if (action === 'install-wordops') checkWoStatus(); // Re-check status after installing WO
         }
     };
 
@@ -123,16 +204,20 @@ const VpsControlPanel = ({ vps, onBack }) => {
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} />
-                <ActionCard title="Instalar SSL em um Site" onClick={() => alert('Ainda não implementado')} />
-                <ActionCard title="Gerenciar Usuários WP" onClick={() => alert('Ainda não implementado')} />
-                <ActionCard title="Deletar VPS" onClick={() => alert('Ainda não implementado')} />
+                <ActionCard title="Instalar SSL em um Site" onClick={() => setModalState({ type: 'install-ssl', isOpen: true })} />
+                <ActionCard title="Gerenciar Usuários WP" onClick={() => setModalState({ type: 'manage-wp-users', isOpen: true })} />
+                <ActionCard 
+                    title="Deletar VPS" 
+                    onClick={() => handleAction('delete-vps-credentials', {}, 'Tem certeza que deseja deletar as credenciais desta VPS? Esta ação não pode ser desfeita.')} 
+                    loading={actionLoading === 'delete-vps-credentials'}
+                />
               </div>
             );
         }
         if (woStatus === 'not-installed') {
             return (
               <div className="max-w-sm mx-auto">
-                  <ActionCard title="Instalar WordOps" onClick={() => handleAction('install-wordops')} loading={actionLoading === 'install-wordops'} />
+                  <ActionCard title="Instalar WordOps" onClick={() => handleAction('install-wordops', {}, 'Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')} loading={actionLoading === 'install-wordops'} />
               </div>
             );
         }
@@ -157,9 +242,20 @@ const VpsControlPanel = ({ vps, onBack }) => {
                 </div>
             </div>
             {renderPanelContent()}
+
             {modalState.isOpen && modalState.type === 'create-site' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Criar Novo Site WordPress">
                     <CreateSiteForm vpsId={vps.id} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                </Modal>
+            )}
+            {modalState.isOpen && modalState.type === 'install-ssl' && (
+                <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Instalar SSL em um Site">
+                    <InstallSslForm vpsId={vps.id} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                </Modal>
+            )}
+            {modalState.isOpen && modalState.type === 'manage-wp-users' && (
+                <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Gerenciar Usuários WordPress">
+                    <ManageWpUsersForm vpsId={vps.id} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {output && <OutputModal output={output} onClose={() => setOutput('')} />}
@@ -249,7 +345,7 @@ const ManageVpsPage = () => {
   return (
     <div className="pt-24 bg-[#141414] min-h-screen text-white">
       {selectedVps ? (
-        <VpsControlPanel vps={selectedVps} onBack={() => setSelectedVps(null)} />
+        <VpsControlPanel vps={selectedVps} onBack={() => setSelectedVps(null)} onVpsDeleted={() => { setSelectedVps(null); fetchVpsList(); }} />
       ) : (
         renderListView()
       )}
