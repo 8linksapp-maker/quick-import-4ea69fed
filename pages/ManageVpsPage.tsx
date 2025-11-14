@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../src/supabaseClient';
 import InputField from '../components/InputField';
@@ -13,7 +12,7 @@ const OutputModal = ({ output, onClose }) => (
             <code>{output}</code>
         </pre>
         <div className="flex justify-end mt-4">
-            <button onClick={onClose} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">Fechar</button>
+            <button onClick={onClose} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"> Fechar</button>
         </div>
     </Modal>
 );
@@ -34,11 +33,27 @@ const CreateSiteForm = ({ vpsId, onActionComplete, onCancel }) => {
         const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
           body: { vpsId, domain, user, pass, email },
         });
-        if (invokeError) throw invokeError;
-        if (data.error) throw new Error(data.error);
+        if (invokeError) {
+            const errText = `Invoke Error: ${JSON.stringify(invokeError, null, 2)}`;
+            setError(errText);
+            alert('OCORREU UM ERRO:\n\n' + errText);
+            throw new Error(errText);
+        }
+        if (data.error) {
+            const errText = `Function Error: ${JSON.stringify(data.error, null, 2)}`;
+            setError(errText);
+            alert('OCORREU UM ERRO:\n\n' + errText);
+            throw new Error(errText);
+        }
         onActionComplete(data.stdout || 'Comando executado, mas não houve output.');
       } catch (err: any) {
-        setError(err.message || 'Ocorreu um erro inesperado.');
+        // The error is already handled and alerted above, this is a fallback.
+        console.error(err);
+        if (!error) { // Avoid setting error twice
+            const errText = `Catch Block Error: ${err.message}`;
+            setError(errText);
+            alert('OCORREU UM ERRO INESPERADO:\n\n' + errText);
+        }
       } finally {
         setLoading(false);
       }
@@ -56,7 +71,7 @@ const CreateSiteForm = ({ vpsId, onActionComplete, onCancel }) => {
             {loading ? 'Criando Site...' : 'Criar Site'}
           </button>
         </div>
-        {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
+        {error && <pre className="mt-4 text-red-500 text-left bg-gray-800 p-2 rounded-md text-xs whitespace-pre-wrap">{error}</pre>}
       </form>
     );
 };
@@ -78,7 +93,9 @@ const InstallSslForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
             if (data.error) throw new Error(data.error);
             onActionComplete(data.stdout || 'Comando executado, mas não houve output.');
         } catch (err: any) {
-            setError(err.message || 'Ocorreu um erro inesperado.');
+            const errText = `Error: ${err.message || JSON.stringify(err, null, 2)}`;
+            setError(errText);
+            alert('OCORREU UM ERRO:\n\n' + errText);
         } finally {
             setLoading(false);
         }
@@ -96,7 +113,7 @@ const InstallSslForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
                     {loading ? 'Instalando SSL...' : 'Instalar SSL'}
                 </button>
             </div>
-            {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
+            {error && <pre className="mt-4 text-red-500 text-left bg-gray-800 p-2 rounded-md text-xs whitespace-pre-wrap">{error}</pre>}
         </form>
     );
 };
@@ -118,7 +135,9 @@ const ManageWpUsersForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
             if (data.error) throw new Error(data.error);
             onActionComplete(JSON.stringify(data.users || data, null, 2));
         } catch (err: any) {
-            setError(err.message || 'Ocorreu um erro inesperado.');
+            const errText = `Error: ${err.message || JSON.stringify(err, null, 2)}`;
+            setError(errText);
+            alert('OCORREU UM ERRO:\n\n' + errText);
         } finally {
             setLoading(false);
         }
@@ -136,7 +155,7 @@ const ManageWpUsersForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
                     {loading ? 'Buscando Usuários...' : 'Listar Usuários'}
                 </button>
             </div>
-            {error && <p className="mt-4 text-red-500 text-center">{error}</p>}
+            {error && <pre className="mt-4 text-red-500 text-left bg-gray-800 p-2 rounded-md text-xs whitespace-pre-wrap">{error}</pre>}
         </form>
     );
 };
@@ -232,8 +251,16 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         setError(null);
         try {
             const { data, error: invokeError } = await supabase.functions.invoke(action, { body: { vpsId: vps.id, ...params } });
-            if (invokeError) throw invokeError;
-            if (data.error) throw new Error(data.error);
+            if (invokeError) {
+                const errText = `Invoke Error: ${JSON.stringify(invokeError, null, 2)}`;
+                alert('OCORREU UM ERRO:\n\n' + errText);
+                throw new Error(errText);
+            }
+            if (data.error) {
+                const errText = `Function Error: ${JSON.stringify(data.error, null, 2)}`;
+                alert('OCORREU UM ERRO:\n\n' + errText);
+                throw new Error(errText);
+            }
             
             let outputString = 'Ação concluída com sucesso.';
             if (data.stdout) outputString = data.stdout;
@@ -247,7 +274,8 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                 onVpsDeleted();
             }
         } catch (err: any) {
-            setOutput(`Erro ao executar a ação: ${err.message}`);
+            console.error(err);
+            setOutput(`ERRO: ${err.message}`);
         } finally {
             setActionLoading(null);
             setModalState({ type: '', isOpen: false });
