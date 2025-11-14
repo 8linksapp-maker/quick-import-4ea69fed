@@ -44,6 +44,7 @@ serve(async (req) => {
         username: credentials.username,
         password: credentials.encrypted_password,
         command: command,
+        wait_for_output: true
       }),
     });
 
