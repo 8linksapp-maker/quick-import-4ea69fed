@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../src/supabaseClient';
 import InputField from '../components/InputField';
@@ -6,8 +7,18 @@ import Modal from '../components/Modal';
 import { AddIcon as PlusIcon, SearchIcon, ArrowLeftIcon, CubeIcon, CheckCircleIcon, XCircleIcon, LoadingSpinner } from '../components/Icons';
 
 // #region Sub-components for Control Panel
-// --- Form to be shown in a modal for creating a new WP site ---
-const CreateSiteForm = ({ vpsId, onSiteCreated, onCancel }) => {
+const OutputModal = ({ output, onClose }) => (
+    <Modal isOpen={true} onClose={onClose} title="Resultado do Comando">
+        <pre className="bg-black text-white p-4 rounded-md max-h-96 overflow-y-auto text-xs">
+            <code>{output}</code>
+        </pre>
+        <div className="flex justify-end mt-4">
+            <button onClick={onClose} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">Fechar</button>
+        </div>
+    </Modal>
+);
+
+const CreateSiteForm = ({ vpsId, onActionComplete, onCancel }) => {
     const [domain, setDomain] = useState('');
     const [user, setUser] = useState('admin');
     const [pass, setPass] = useState('');
@@ -25,9 +36,7 @@ const CreateSiteForm = ({ vpsId, onSiteCreated, onCancel }) => {
         });
         if (invokeError) throw invokeError;
         if (data.error) throw new Error(data.error);
-        alert('Site criado com sucesso! O output do comando será exibido.');
-        console.log('Comand output:', data.stdout);
-        onSiteCreated();
+        onActionComplete(data.stdout || 'Comando executado, mas não houve output.');
       } catch (err: any) {
         setError(err.message || 'Ocorreu um erro inesperado.');
       } finally {
@@ -52,8 +61,6 @@ const CreateSiteForm = ({ vpsId, onSiteCreated, onCancel }) => {
     );
 };
 
-
-// --- Action Card for the Control Panel ---
 const ActionCard = ({ title, onClick, loading = false }) => (
     <div 
       className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-700 hover:border-blue-500 transition-colors"
@@ -66,20 +73,18 @@ const ActionCard = ({ title, onClick, loading = false }) => (
     </div>
 );
 
-// --- The Control Panel view ---
 const VpsControlPanel = ({ vps, onBack }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [isCreateSiteModalOpen, setCreateSiteModalOpen] = useState(false);
+    const [modalState, setModalState] = useState({ type: '', isOpen: false });
+    const [output, setOutput] = useState('');
 
     const checkWoStatus = useCallback(async () => {
         setWoStatus('checking');
         setError(null);
         try {
-          const { data, error: invokeError } = await supabase.functions.invoke('check-wordops-installed', {
-            body: { vpsId: vps.id },
-          });
+          const { data, error: invokeError } = await supabase.functions.invoke('check-wordops-installed', { body: { vpsId: vps.id } });
           if (invokeError) throw invokeError;
           if (data.error) throw new Error(data.error);
           setWoStatus(data.installed ? 'installed' : 'not-installed');
@@ -89,26 +94,21 @@ const VpsControlPanel = ({ vps, onBack }) => {
         }
     }, [vps.id]);
     
-    useEffect(() => {
-        checkWoStatus();
-    }, [checkWoStatus]);
+    useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
 
-    const handleInstallWordOps = async () => {
-        if (window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) {
-            setActionLoading('install-wo');
-            setError(null);
-            try {
-                const { error: invokeError } = await supabase.functions.invoke('install-wordops', {
-                    body: { vpsId: vps.id },
-                });
-                if (invokeError) throw invokeError;
-                alert('Instalação do WordOps iniciada com sucesso! A página será atualizada.');
-                checkWoStatus();
-            } catch (err: any) {
-                setError(err.message);
-            } finally {
-                setActionLoading(null);
-            }
+    const handleAction = async (action: string, params: any = {}) => {
+        setActionLoading(action);
+        setError(null);
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke(action, { body: { vpsId: vps.id, ...params } });
+            if (invokeError) throw invokeError;
+            if (data.error) throw new Error(data.error);
+            setOutput(data.stdout || 'Ação concluída com sucesso.');
+        } catch (err: any) {
+            setOutput(`Erro ao executar a ação: ${err.message}`);
+        } finally {
+            setActionLoading(null);
+            if (action === 'install-wordops') checkWoStatus();
         }
     };
 
@@ -122,21 +122,17 @@ const VpsControlPanel = ({ vps, onBack }) => {
         if (woStatus === 'installed') {
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ActionCard title="Instalar Site WordPress" onClick={() => setCreateSiteModalOpen(true)} />
-                <ActionCard title="Instalar SSL em um Site" onClick={() => alert('Função não implementada')} />
-                <ActionCard title="Gerenciar Usuários WP" onClick={() => alert('Função não implementada')} />
-                <ActionCard title="Deletar VPS" onClick={() => alert('Função não implementada')} />
+                <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} />
+                <ActionCard title="Instalar SSL em um Site" onClick={() => alert('Ainda não implementado')} />
+                <ActionCard title="Gerenciar Usuários WP" onClick={() => alert('Ainda não implementado')} />
+                <ActionCard title="Deletar VPS" onClick={() => alert('Ainda não implementado')} />
               </div>
             );
         }
         if (woStatus === 'not-installed') {
             return (
               <div className="max-w-sm mx-auto">
-                  <ActionCard 
-                      title="Instalar WordOps" 
-                      onClick={handleInstallWordOps}
-                      loading={actionLoading === 'install-wo'}
-                  />
+                  <ActionCard title="Instalar WordOps" onClick={() => handleAction('install-wordops')} loading={actionLoading === 'install-wordops'} />
               </div>
             );
         }
@@ -161,9 +157,12 @@ const VpsControlPanel = ({ vps, onBack }) => {
                 </div>
             </div>
             {renderPanelContent()}
-            <Modal isOpen={isCreateSiteModalOpen} onClose={() => setCreateSiteModalOpen(false)} title="Criar Novo Site WordPress">
-                <CreateSiteForm vpsId={vps.id} onSiteCreated={() => setCreateSiteModalOpen(false)} onCancel={() => setCreateSiteModalOpen(false)} />
-            </Modal>
+            {modalState.isOpen && modalState.type === 'create-site' && (
+                <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Criar Novo Site WordPress">
+                    <CreateSiteForm vpsId={vps.id} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                </Modal>
+            )}
+            {output && <OutputModal output={output} onClose={() => setOutput('')} />}
         </div>
     );
 };
@@ -176,8 +175,6 @@ const ManageVpsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // State and handlers for Add/Edit Modals, which are part of the list view
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [vpsToEdit, setVpsToEdit] = useState<VpsData | null>(null);
@@ -198,8 +195,10 @@ const ManageVpsPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchVpsList();
-  }, [fetchVpsList]);
+    if (!selectedVps) { // Only fetch list if no VPS is selected
+        fetchVpsList();
+    }
+  }, [fetchVpsList, selectedVps]);
 
   const handleVpsAdded = () => { fetchVpsList(); setIsAddModalOpen(false); };
   const handleVpsUpdated = () => { fetchVpsList(); setIsEditModalOpen(false); setVpsToEdit(null); };
@@ -221,9 +220,6 @@ const ManageVpsPage = () => {
     }
   };
 
-  const filteredVpsList = vpsList.filter(vps => vps.host.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  // This renders the list of VPS cards
   const renderListView = () => {
     if (loading) return <p className="text-center py-10">Carregando seus VPSs...</p>;
     if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
@@ -240,7 +236,7 @@ const ManageVpsPage = () => {
             <h3 className="text-lg font-semibold text-white mt-4">Adicionar Novo VPS</h3>
             <p className="text-sm text-gray-500">Conectar um novo servidor</p>
           </div>
-          {filteredVpsList.map(vps => (
+          {vpsList.filter(vps => vps.host.toLowerCase().includes(searchTerm.toLowerCase())).map(vps => (
             <div key={vps.id} onClick={() => setSelectedVps(vps)}>
                 <VpsCard vps={vps} onDelete={() => handleDeleteVps(vps.id)} onEdit={() => handleEditVps(vps)} />
             </div>
@@ -258,7 +254,6 @@ const ManageVpsPage = () => {
         renderListView()
       )}
       
-      {/* Modals for the List View */}
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Adicionar Novo VPS">
         <AddVpsForm onVpsAdded={handleVpsAdded} onCancel={() => setIsAddModalOpen(false)} />
       </Modal>
@@ -271,7 +266,6 @@ const ManageVpsPage = () => {
   );
 };
 
-// --- Add/Edit forms remain unchanged as they are used by the list view modals ---
 const AddVpsForm = ({ onVpsAdded, onCancel }) => {
     const [host, setHost] = useState('');
     const [port, setPort] = useState(22);
