@@ -44,25 +44,28 @@ serve(async (req) => {
         username: credentials.username,
         password: credentials.encrypted_password,
         command: command,
-        wait_for_output: true // Added this line
+        wait_for_output: true
       }),
     });
 
+    const responseData = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Proxy service returned an error.');
+      return new Response(JSON.stringify({ error: responseData }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
-    const responseData = await response.json();
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: { message: error.message } }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200,
     });
   }
 });

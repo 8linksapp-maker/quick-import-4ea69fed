@@ -10,7 +10,6 @@ serve(async (req) => {
   }
 
   try {
-    // Use the admin client to bypass RLS for this internal operation
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -20,10 +19,6 @@ serve(async (req) => {
     if (!vpsId || !woUsername || !woEmail) {
       throw new Error('vpsId, username, and email are required.');
     }
-
-    // We don't need to verify the user here as we are not accessing user-specific data directly.
-    // The security is in retrieving the credentials which requires the vpsId passed from the frontend.
-    // A user can only see the vpsIds they own.
 
     const { data: credentials, error: credError } = await supabaseClient
       .from('vps_credentials')
@@ -37,11 +32,8 @@ serve(async (req) => {
     const sshServiceUrl = Deno.env.get('VERCEL_SSH_SERVICE_URL');
     if (!sshServiceUrl) throw new Error('VERCEL_SSH_SERVICE_URL is not set.');
 
-    // Construct the non-interactive command
-    // Escape single quotes in username and email to prevent shell injection issues
     const escapedUsername = woUsername.replace(/'/g, "'\\''");
     const escapedEmail = woEmail.replace(/'/g, "'\\''");
-
     const command = `echo "[user]\n    name = '${escapedUsername}'\n    email = '${escapedEmail}'" > ~/.gitconfig && wget -qO wo wops.cc && sudo bash wo --force && sudo wo stack install`;
 
     const response = await fetch(`${sshServiceUrl}/execute`, {
@@ -53,25 +45,28 @@ serve(async (req) => {
         username: credentials.username,
         password: credentials.encrypted_password,
         command: command,
-        wait_for_output: true // Added this line
+        wait_for_output: true
       }),
     });
 
+    const responseData = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Proxy service returned an error.');
+      return new Response(JSON.stringify({ error: responseData }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
-    const responseData = await response.json();
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: { message: error.message } }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200,
     });
   }
 });

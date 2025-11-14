@@ -44,82 +44,38 @@ const CreateSiteForm = ({ onSubmit, onCancel }) => {
     );
 };
 
-const InstallSslForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
+const InstallSslForm = ({ sites, onSubmit, onCancel }) => {
     const [domain, setDomain] = useState(sites[0] || '');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleInstallSsl = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            const { data, error: invokeError } = await supabase.functions.invoke('install-ssl-site', {
-                body: { vpsId, domain },
-            });
-            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
-            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
-            onActionComplete(data);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
-        <form onSubmit={handleInstallSsl}>
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ domain }); }}>
             <label htmlFor="sslDomain" className="block text-sm font-medium text-gray-300 mb-2">Selecione o Site</label>
             <select id="sslDomain" value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 {sites.map(site => <option key={site} value={site}>{site}</option>)}
             </select>
             <div className="flex justify-end items-center gap-4 mt-6">
                 <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
-                <button type="submit" disabled={loading || !domain} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
-                    {loading ? 'Instalando SSL...' : 'Instalar SSL'}
+                <button type="submit" disabled={!domain} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
+                    Instalar SSL
                 </button>
             </div>
-            {error && <pre className="mt-4 text-red-500 text-left bg-gray-800 p-2 rounded-md text-xs whitespace-pre-wrap">{error}</pre>}
         </form>
     );
 };
 
-const ManageWpUsersForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
+const ManageWpUsersForm = ({ sites, onSubmit, onCancel }) => {
     const [domain, setDomain] = useState(sites[0] || '');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleGetWpUsers = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            const { data, error: invokeError } = await supabase.functions.invoke('get-wp-users', {
-                body: { vpsId, domain },
-            });
-            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
-            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
-            onActionComplete(data);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
-        <form onSubmit={handleGetWpUsers}>
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ domain }); }}>
             <label htmlFor="wpUserDomain" className="block text-sm font-medium text-gray-300 mb-2">Selecione o Site</label>
             <select id="wpUserDomain" value={domain} onChange={(e) => setDomain(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 {sites.map(site => <option key={site} value={site}>{site}</option>)}
             </select>
             <div className="flex justify-end items-center gap-4 mt-6">
                 <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
-                <button type="submit" disabled={loading || !domain} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
-                    {loading ? 'Buscando Usuários...' : 'Listar Usuários'}
+                <button type="submit" disabled={!domain} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
+                    Listar Usuários
                 </button>
             </div>
-            {error && <pre className="mt-4 text-red-500 text-left bg-gray-800 p-2 rounded-md text-xs whitespace-pre-wrap">{error}</pre>}
         </form>
     );
 };
@@ -156,7 +112,7 @@ const DeleteVpsModal = ({ onConfirm, onCancel }) => {
 
 const ActionCard = ({ title, onClick, loading = false }) => (
     <div 
-      className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-700 hover:border-blue-500 transition-colors"
+      className={`bg-gray-800 border border-gray-700 rounded-lg p-6 text-center transition-colors ${!loading ? 'cursor-pointer hover:bg-gray-700 hover:border-blue-500' : 'opacity-50 cursor-not-allowed'}`}
       onClick={!loading ? onClick : undefined}
     >
       <div className="flex flex-col items-center justify-center h-full">
@@ -166,39 +122,20 @@ const ActionCard = ({ title, onClick, loading = false }) => (
     </div>
 );
 
-
-
-const SiteCreationStatus = ({ domain, status, error, warning, progress }) => {
+const JobStatus = ({ title, status, error, warning, progress }) => {
     let statusInfo = {
         color: 'blue',
         textColor: 'text-blue-300',
         bgColor: 'bg-blue-900/30',
         borderColor: 'border-blue-500',
         iconColor: 'text-blue-400',
-        text: `Criando site ${domain}...`,
         icon: <LoadingSpinner />
     };
 
     if (status === 'completed') {
-        statusInfo = {
-            color: 'green',
-            textColor: 'text-green-300',
-            bgColor: 'bg-green-900/30',
-            borderColor: 'border-green-500',
-            iconColor: 'text-green-400',
-            text: `Site ${domain} criado com sucesso!`,
-            icon: <CheckCircleIcon />
-        };
+        statusInfo = { ...statusInfo, color: 'green', textColor: 'text-green-300', bgColor: 'bg-green-900/30', borderColor: 'border-green-500', iconColor: 'text-green-400', icon: <CheckCircleIcon /> };
     } else if (status === 'failed') {
-        statusInfo = {
-            color: 'red',
-            textColor: 'text-red-300',
-            bgColor: 'bg-red-900/30',
-            borderColor: 'border-red-500',
-            iconColor: 'text-red-400',
-            text: `Falha ao criar o site ${domain}.`,
-            icon: <XCircleIcon />
-        };
+        statusInfo = { ...statusInfo, color: 'red', textColor: 'text-red-300', bgColor: 'bg-red-900/30', borderColor: 'border-red-500', iconColor: 'text-red-400', icon: <XCircleIcon /> };
     }
     
     if (warning) {
@@ -214,14 +151,14 @@ const SiteCreationStatus = ({ domain, status, error, warning, progress }) => {
             <div className="flex items-center">
                 <div className={`mr-4 ${statusInfo.iconColor}`}>{statusInfo.icon}</div>
                 <div className="w-full">
-                    <p className={`font-semibold text-lg ${statusInfo.textColor}`}>{statusInfo.text}</p>
-                    {status === 'creating' && (
+                    <p className={`font-semibold text-lg ${statusInfo.textColor}`}>{title}</p>
+                    {status === 'running' && (
                         <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
                             <div className={`bg-${statusInfo.color}-600 h-2.5 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }}></div>
                         </div>
                     )}
                     {warning && <p className="text-yellow-400 text-sm mt-2">{warning}</p>}
-                    {error && <p className="text-red-400 text-sm mt-2 bg-red-900/50 p-2 rounded">{error}</p>}
+                    {error && <pre className="text-red-400 text-sm mt-2 bg-red-900/50 p-2 rounded whitespace-pre-wrap">{error}</pre>}
                 </div>
             </div>
         </div>
@@ -233,17 +170,15 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [sites, setSites] = useState<string[]>([]);
     const [sitesLoading, setSitesLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [modalState, setModalState] = useState({ type: '', isOpen: false });
     const [output, setOutput] = useState('');
-    const [siteCreation, setSiteCreation] = useState<{ domain: string; status: 'creating' | 'completed' | 'failed'; progress: number; error?: string; warning?: string; } | null>(null);
+    const [activeJob, setActiveJob] = useState<{ title: string; status: 'running' | 'completed' | 'failed'; progress: number; error?: string; warning?: string; } | null>(null);
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
         try {
             const { data, error: invokeError } = await supabase.functions.invoke('get-installed-sites', { body: { vpsId: vps.id } });
-            if (invokeError) throw invokeError;
-            if (data.error) throw new Error(data.error);
+            if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
             setSites(data.sites || []);
         } catch (err: any) {
             setError(`Falha ao buscar sites: ${err.message}`);
@@ -257,8 +192,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         setError(null);
         try {
           const { data, error: invokeError } = await supabase.functions.invoke('check-wordops-installed', { body: { vpsId: vps.id } });
-          if (invokeError) throw invokeError;
-          if (data.error) throw new Error(data.error);
+          if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
           if (data.installed) {
             setWoStatus('installed');
             fetchSites();
@@ -273,12 +207,12 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
 
-    const handleCreateSite = async ({ domain, user, pass, email }) => {
+    const processAction = async ({ action, params, title, successMessage, duration = 90 }) => {
         setModalState({ type: '', isOpen: false });
-        setSiteCreation({ domain, status: 'creating', progress: 0 });
+        setActiveJob({ title, status: 'running', progress: 0 });
     
         const progressInterval = setInterval(() => {
-            setSiteCreation(prev => {
+            setActiveJob(prev => {
                 if (!prev) {
                     clearInterval(progressInterval);
                     return null;
@@ -286,89 +220,69 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                 const newProgress = Math.min(prev.progress + 1, 90);
                 return { ...prev, progress: newProgress };
             });
-        }, 800);
+        }, (duration * 1000) / 90);
     
-        const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
-            body: { vpsId: vps.id, domain, user, pass, email },
+        const { data, error: invokeError } = await supabase.functions.invoke(action, {
+            body: { vpsId: vps.id, ...params },
         });
     
         clearInterval(progressInterval);
 
-        if (invokeError) {
-            setSiteCreation({ domain, status: 'failed', progress: 100, error: invokeError.message });
-            return;
-        }
+        if (invokeError || data.error) {
+            const errorPayload = invokeError ? invokeError.message : JSON.stringify(data.error);
+            const isSslError = typeof errorPayload === 'string' && errorPayload.includes("Aborting SSL certificate issuance");
 
-        if (data.error) {
-            const errorMessage = JSON.stringify(data.error);
-            if (errorMessage.includes("Aborting SSL certificate issuance")) {
-                setSiteCreation({ 
-                    domain, 
+            if (isSslError) {
+                setActiveJob({ 
+                    title: 'Site Criado com Aviso', 
                     status: 'completed', 
                     progress: 100,
                     warning: 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.' 
                 });
                 fetchSites();
-                setTimeout(() => setSiteCreation(null), 15000);
+                setTimeout(() => setActiveJob(null), 15000);
             } else {
-                setSiteCreation({ domain, status: 'failed', progress: 100, error: errorMessage });
+                setActiveJob({ title: `Falha: ${title}`, status: 'failed', progress: 100, error: errorPayload });
             }
             return;
         }
     
-        setSiteCreation({ domain, status: 'completed', progress: 100 });
-        fetchSites();
-        setTimeout(() => setSiteCreation(null), 8000);
-    };
-
-    const processAction = async (action: string, params: any = {}) => {
-        setModalState({ type: '', isOpen: false }); // Close any open modal
-        setActionLoading(action);
-        setError(null);
-        try {
-            const { data, error: invokeError } = await supabase.functions.invoke(action, { body: { vpsId: vps.id, ...params } });
-            
-            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
-            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
-            
-            const outputString = `STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`;
-            setOutput(outputString);
-
-            if (action === 'delete-vps-credentials') {
-                onVpsDeleted();
-            }
-        } catch (err: any) {
-            setOutput(`ERRO CAPTURADO NO CLIENTE:\n\n${err.message}`);
-        } finally {
-            setActionLoading(null);
-            if (action === 'install-wordops') checkWoStatus();
+        setActiveJob({ title: successMessage || `${title} concluído!`, status: 'completed', progress: 100 });
+        
+        if (action === 'get-wp-users') {
+            setOutput(`Usuários:\n${JSON.stringify(data.users, null, 2)}`);
         }
+        if (action.includes('delete')) {
+            onVpsDeleted();
+        }
+
+        if (action === 'install-wordops') checkWoStatus();
+        if (action === 'create-wordpress-site' || action === 'install-ssl-site') fetchSites();
+
+        setTimeout(() => setActiveJob(null), 8000);
     };
 
     const renderPanelContent = () => {
-        if (woStatus === 'checking') {
-            return <div className="text-center"><LoadingSpinner /> <p className="mt-4">Verificando status do WordOps...</p></div>;
-        }
-        if (error) {
-            return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
-        }
+        if (woStatus === 'checking') return <div className="text-center"><LoadingSpinner /> <p className="mt-4">Verificando status do WordOps...</p></div>;
+        if (error) return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
+        
+        const isJobRunning = activeJob?.status === 'running';
+
         if (woStatus === 'installed') {
-            if (sitesLoading) {
-                return <div className="text-center"><LoadingSpinner /> <p className="mt-4">Carregando sites instalados...</p></div>;
-            }
+            if (sitesLoading) return <div className="text-center"><LoadingSpinner /> <p className="mt-4">Carregando sites instalados...</p></div>;
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} />
-                <ActionCard title="Instalar SSL em um Site" onClick={() => setModalState({ type: 'install-ssl', isOpen: true })} />
-                <ActionCard title="Gerenciar Usuários WP" onClick={() => setModalState({ type: 'manage-wp-users', isOpen: true })} />
-                <ActionCard title="Deletar VPS" onClick={() => setModalState({ type: 'delete-vps', isOpen: true })} loading={actionLoading === 'delete-vps-credentials'} />
+                <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} loading={isJobRunning} />
+                <ActionCard title="Instalar SSL em um Site" onClick={() => setModalState({ type: 'install-ssl', isOpen: true })} loading={isJobRunning} />
+                <ActionCard title="Gerenciar Usuários WP" onClick={() => setModalState({ type: 'manage-wp-users', isOpen: true })} loading={isJobRunning} />
+                <ActionCard title="Deletar VPS" onClick={() => setModalState({ type: 'delete-vps', isOpen: true })} loading={isJobRunning} />
               </div>
             );
         }
         if (woStatus === 'not-installed') {
             return (
               <div className="max-w-sm mx-auto">
-                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) processAction('install-wordops')}} loading={actionLoading === 'install-wordops'} />
+                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) processAction({ action: 'install-wordops', params: { username: 'admin', email: 'admin@example.com' }, title: 'Instalando WordOps...', duration: 300 })}} loading={isJobRunning} />
               </div>
             );
         }
@@ -393,41 +307,26 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                 </div>
             </div>
 
-            {siteCreation && (
-                <SiteCreationStatus 
-                    domain={siteCreation.domain} 
-                    status={siteCreation.status} 
-                    error={siteCreation.error}
-                    warning={siteCreation.warning}
-                    progress={siteCreation.progress}
-                />
-            )}
-
+            {activeJob && <JobStatus {...activeJob} />}
             {renderPanelContent()}
 
             {modalState.isOpen && modalState.type === 'create-site' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Criar Novo Site WordPress">
-                    <CreateSiteForm 
-                        onSubmit={handleCreateSite} 
-                        onCancel={() => setModalState({ type: '', isOpen: false })} 
-                    />
+                    <CreateSiteForm onSubmit={(params) => processAction({ action: 'create-wordpress-site', params, title: `Criando site ${params.domain}...` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'install-ssl' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Instalar SSL em um Site">
-                    <InstallSslForm vpsId={vps.id} sites={sites} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); fetchSites(); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <InstallSslForm sites={sites} onSubmit={(params) => processAction({ action: 'install-ssl-site', params, title: `Instalando SSL em ${params.domain}...` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'manage-wp-users' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Gerenciar Usuários WordPress">
-                    <ManageWpUsersForm vpsId={vps.id} sites={sites} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${JSON.stringify(data.users, null, 2) || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <ManageWpUsersForm sites={sites} onSubmit={(params) => processAction({ action: 'get-wp-users', params, title: `Buscando usuários em ${params.domain}...`, duration: 10 })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'delete-vps' && (
-                <DeleteVpsModal 
-                    onConfirm={() => processAction('delete-vps-credentials')}
-                    onCancel={() => setModalState({ type: '', isOpen: false })}
-                />
+                <DeleteVpsModal onConfirm={() => processAction({ action: 'delete-vps-credentials', params: { id: vps.id }, title: 'Excluindo VPS...', duration: 10 })} onCancel={() => setModalState({ type: '', isOpen: false })} />
             )}
             {output && <OutputModal output={output} onClose={() => setOutput('')} />}
         </div>
@@ -451,8 +350,7 @@ const ManageVpsPage = () => {
     setError('');
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('get-vps-list');
-      if (invokeError) throw invokeError;
-      if (data.error) throw new Error(data.error);
+      if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
       setVpsList(data || []);
     } catch (err: any) {
       setError(err.message || 'Falha ao buscar a lista de VPS.');
@@ -478,8 +376,8 @@ const ManageVpsPage = () => {
   const handleDeleteVps = async (vpsId: number) => {
     if (window.confirm('Tem certeza que deseja deletar este VPS? Esta ação não pode ser desfeita.')) {
       try {
-        const { error: invokeError } = await supabase.functions.invoke('delete-vps-credentials', { body: { id: vpsId } });
-        if (invokeError) throw invokeError;
+        const { data, error: invokeError } = await supabase.functions.invoke('delete-vps-credentials', { body: { id: vpsId } });
+        if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
         fetchVpsList();
       } catch (err: any) {
         alert(`Falha ao deletar o VPS: ${err.message}`);
@@ -551,8 +449,7 @@ const AddVpsForm = ({ onVpsAdded, onCancel }) => {
         const { data, error: invokeError } = await supabase.functions.invoke('save-vps-credentials', {
           body: { host, port, username, password },
         });
-        if (invokeError) throw invokeError;
-        if (data.error) throw new Error(data.error);
+        if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
         setMessage(data.message || 'VPS salvo com sucesso!');
         setTimeout(() => onVpsAdded(), 1500);
       } catch (err: any) {
@@ -598,11 +495,10 @@ const EditVpsForm = ({ vps, onVpsUpdated, onCancel }) => {
         const { data, error: invokeError } = await supabase.functions.invoke('update-vps-credentials', {
           body: { id: vps.id, host, port, username, password },
         });
-        if (invokeError) throw invokeError;
-        if (data.error) throw new Error(data.error);
+        if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
         setMessage(data.message || 'VPS atualizado com sucesso!');
         setTimeout(() => onVpsUpdated(), 1500);
-      } catch (err: any) {
+      } catch (err: any)
         setError(err.message || 'Ocorreu um erro inesperado.');
       } finally {
         setLoading(false);

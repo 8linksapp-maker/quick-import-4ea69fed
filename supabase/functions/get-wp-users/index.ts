@@ -30,7 +30,6 @@ serve(async (req) => {
     const sshServiceUrl = Deno.env.get('VERCEL_SSH_SERVICE_URL');
     if (!sshServiceUrl) throw new Error('VERCEL_SSH_SERVICE_URL is not set.');
 
-    // Change to the site's directory and then run the wp-cli command
     const command = `cd /var/www/${domain}/htdocs && wp user list --allow-root --format=json`;
 
     const response = await fetch(`${sshServiceUrl}/execute`, {
@@ -46,13 +45,15 @@ serve(async (req) => {
       }),
     });
 
+    const responseData = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      // Throw the entire error object, stringified, to pass all details to the client.
-      throw new Error(JSON.stringify(errorData));
+      return new Response(JSON.stringify({ error: responseData }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
-    const responseData = await response.json();
     const users = JSON.parse(responseData.stdout);
 
     return new Response(JSON.stringify({ users }), {
@@ -61,9 +62,9 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: { message: error.message } }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200,
     });
   }
 });
