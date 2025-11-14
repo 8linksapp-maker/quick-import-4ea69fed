@@ -205,6 +205,66 @@ const SiteCreationStatus = ({ domain, status, error }) => {
     );
 };
 
+const SiteCreationStatus = ({ domain, status, error, warning, progress }) => {
+    let statusInfo = {
+        color: 'blue',
+        textColor: 'text-blue-300',
+        bgColor: 'bg-blue-900/30',
+        borderColor: 'border-blue-500',
+        iconColor: 'text-blue-400',
+        text: `Criando site ${domain}...`,
+        icon: <LoadingSpinner />
+    };
+
+    if (status === 'completed') {
+        statusInfo = {
+            color: 'green',
+            textColor: 'text-green-300',
+            bgColor: 'bg-green-900/30',
+            borderColor: 'border-green-500',
+            iconColor: 'text-green-400',
+            text: `Site ${domain} criado com sucesso!`,
+            icon: <CheckCircleIcon />
+        };
+    } else if (status === 'failed') {
+        statusInfo = {
+            color: 'red',
+            textColor: 'text-red-300',
+            bgColor: 'bg-red-900/30',
+            borderColor: 'border-red-500',
+            iconColor: 'text-red-400',
+            text: `Falha ao criar o site ${domain}.`,
+            icon: <XCircleIcon />
+        };
+    }
+    
+    if (warning) {
+        statusInfo.color = 'yellow';
+        statusInfo.textColor = 'text-yellow-300';
+        statusInfo.bgColor = 'bg-yellow-900/30';
+        statusInfo.borderColor = 'border-yellow-500';
+        statusInfo.iconColor = 'text-yellow-400';
+    }
+
+    return (
+        <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-lg p-4 mb-6 animate-fade-in`}>
+            <div className="flex items-center">
+                <div className={`mr-4 ${statusInfo.iconColor}`}>{statusInfo.icon}</div>
+                <div className="w-full">
+                    <p className={`font-semibold text-lg ${statusInfo.textColor}`}>{statusInfo.text}</p>
+                    {status === 'creating' && (
+                        <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
+                            <div className={`bg-${statusInfo.color}-600 h-2.5 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }}></div>
+                        </div>
+                    )}
+                    {warning && <p className="text-yellow-400 text-sm mt-2">{warning}</p>}
+                    {error && <p className="text-red-400 text-sm mt-2 bg-red-900/50 p-2 rounded">{error}</p>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [sites, setSites] = useState<string[]>([]);
@@ -213,7 +273,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [modalState, setModalState] = useState({ type: '', isOpen: false });
     const [output, setOutput] = useState('');
-    const [siteCreation, setSiteCreation] = useState<{ domain: string; status: 'creating' | 'completed' | 'failed'; error?: string; } | null>(null);
+    const [siteCreation, setSiteCreation] = useState<{ domain: string; status: 'creating' | 'completed' | 'failed'; progress: number; error?: string; warning?: string; } | null>(null);
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -251,26 +311,48 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
 
     const handleCreateSite = async ({ domain, user, pass, email }) => {
-        setModalState({ type: '', isOpen: false }); // Close modal
-        setSiteCreation({ domain, status: 'creating' }); // Start progress
+        setModalState({ type: '', isOpen: false });
+        setSiteCreation({ domain, status: 'creating', progress: 0 });
+    
+        const progressInterval = setInterval(() => {
+            setSiteCreation(prev => {
+                if (!prev) return null;
+                const newProgress = Math.min(prev.progress + 1, 90); // Simulate progress up to 90%
+                return { ...prev, progress: newProgress };
+            });
+        }, 800); // ~72 seconds to reach 90%
     
         try {
             const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
                 body: { vpsId: vps.id, domain, user, pass, email },
             });
     
+            clearInterval(progressInterval);
+
             if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
             if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
     
-            setSiteCreation({ domain, status: 'completed' });
-            fetchSites(); // Refresh site list
+            setSiteCreation({ domain, status: 'completed', progress: 100 });
+            fetchSites();
     
-            setTimeout(() => {
-                setSiteCreation(null); // Clear status after a few seconds
-            }, 5000);
+            setTimeout(() => setSiteCreation(null), 8000);
     
         } catch (err: any) {
-            setSiteCreation({ domain, status: 'failed', error: err.message });
+            clearInterval(progressInterval);
+            const errorMessage = err.message || '';
+
+            if (errorMessage.includes("Aborting SSL certificate issuance")) {
+                setSiteCreation({ 
+                    domain, 
+                    status: 'completed', 
+                    progress: 100,
+                    warning: 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.' 
+                });
+                fetchSites(); // Refresh list because site was created
+                setTimeout(() => setSiteCreation(null), 15000); // Keep message longer
+            } else {
+                setSiteCreation({ domain, status: 'failed', progress: 100, error: errorMessage });
+            }
         }
     };
 
@@ -350,7 +432,9 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                 <SiteCreationStatus 
                     domain={siteCreation.domain} 
                     status={siteCreation.status} 
-                    error={siteCreation.error} 
+                    error={siteCreation.error}
+                    warning={siteCreation.warning}
+                    progress={siteCreation.progress}
                 />
             )}
 
@@ -366,7 +450,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
             )}
             {modalState.isOpen && modalState.type === 'install-ssl' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Instalar SSL em um Site">
-                    <InstallSslForm vpsId={vps.id} sites={sites} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <InstallSslForm vpsId={vps.id} sites={sites} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); fetchSites(); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'manage-wp-users' && (
