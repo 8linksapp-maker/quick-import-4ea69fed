@@ -17,47 +17,29 @@ const OutputModal = ({ output, onClose }) => (
     </Modal>
 );
 
-const CreateSiteForm = ({ vpsId, onActionComplete, onCancel }) => {
+const CreateSiteForm = ({ onSubmit, onCancel }) => {
     const [domain, setDomain] = useState('');
     const [user, setUser] = useState('admin');
     const [pass, setPass] = useState('');
     const [email, setEmail] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
   
-    const handleCreateSite = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      setLoading(true);
-      setError('');
-      try {
-        const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
-          body: { vpsId, domain, user, pass, email },
-        });
-
-        if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
-        if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
-
-        onActionComplete(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+      onSubmit({ domain, user, pass, email });
     };
   
     return (
-      <form onSubmit={handleCreateSite}>
+      <form onSubmit={handleSubmit}>
         <InputField label="Domínio" id="domain" type="text" value={domain} onChange={(e) => setDomain(e.target.value)} required />
         <InputField label="Usuário WP" id="user" type="text" value={user} onChange={(e) => setUser(e.target.value)} required />
         <InputField label="Senha WP" id="pass" type="password" value={pass} onChange={(e) => setPass(e.target.value)} required />
         <InputField label="Email WP" id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <div className="flex justify-end items-center gap-4 mt-6">
           <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
-          <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
-            {loading ? 'Criando Site...' : 'Criar Site'}
+          <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+            Criar Site
           </button>
         </div>
-        {error && <pre className="mt-4 text-red-500 text-left bg-gray-800 p-2 rounded-md text-xs whitespace-pre-wrap">{error}</pre>}
       </form>
     );
 };
@@ -184,6 +166,45 @@ const ActionCard = ({ title, onClick, loading = false }) => (
     </div>
 );
 
+const SiteCreationStatus = ({ domain, status, error }) => {
+    let statusInfo = {
+        color: 'blue',
+        text: `Criando site ${domain}...`,
+        icon: <LoadingSpinner />
+    };
+
+    if (status === 'completed') {
+        statusInfo = {
+            color: 'green',
+            text: `Site ${domain} criado com sucesso!`,
+            icon: <CheckCircleIcon />
+        };
+    } else if (status === 'failed') {
+        statusInfo = {
+            color: 'red',
+            text: `Falha ao criar o site ${domain}.`,
+            icon: <XCircleIcon />
+        };
+    }
+
+    return (
+        <div className={`bg-${statusInfo.color}-900/30 border border-${statusInfo.color}-500 rounded-lg p-4 mb-6 animate-fade-in`}>
+            <div className="flex items-center">
+                <div className={`mr-4 text-${statusInfo.color}-400`}>{statusInfo.icon}</div>
+                <div>
+                    <p className={`font-semibold text-lg text-${statusInfo.color}-300`}>{statusInfo.text}</p>
+                    {status === 'creating' && (
+                        <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
+                            <div className="bg-blue-600 h-2.5 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                        </div>
+                    )}
+                    {error && <p className="text-red-400 text-sm mt-2 bg-red-900/50 p-2 rounded">{error}</p>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [sites, setSites] = useState<string[]>([]);
@@ -192,6 +213,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [modalState, setModalState] = useState({ type: '', isOpen: false });
     const [output, setOutput] = useState('');
+    const [siteCreation, setSiteCreation] = useState<{ domain: string; status: 'creating' | 'completed' | 'failed'; error?: string; } | null>(null);
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -227,6 +249,30 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     }, [vps.id, fetchSites]);
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
+
+    const handleCreateSite = async ({ domain, user, pass, email }) => {
+        setModalState({ type: '', isOpen: false }); // Close modal
+        setSiteCreation({ domain, status: 'creating' }); // Start progress
+    
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
+                body: { vpsId: vps.id, domain, user, pass, email },
+            });
+    
+            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
+            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
+    
+            setSiteCreation({ domain, status: 'completed' });
+            fetchSites(); // Refresh site list
+    
+            setTimeout(() => {
+                setSiteCreation(null); // Clear status after a few seconds
+            }, 5000);
+    
+        } catch (err: any) {
+            setSiteCreation({ domain, status: 'failed', error: err.message });
+        }
+    };
 
     const processAction = async (action: string, params: any = {}) => {
         setModalState({ type: '', isOpen: false }); // Close any open modal
@@ -299,11 +345,23 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                     <span className="text-lg">{woStatus === 'installed' ? 'WordOps Instalado' : (woStatus === 'not-installed' ? 'WordOps Não Instalado' : 'Verificando...')}</span>
                 </div>
             </div>
+
+            {siteCreation && (
+                <SiteCreationStatus 
+                    domain={siteCreation.domain} 
+                    status={siteCreation.status} 
+                    error={siteCreation.error} 
+                />
+            )}
+
             {renderPanelContent()}
 
             {modalState.isOpen && modalState.type === 'create-site' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Criar Novo Site WordPress">
-                    <CreateSiteForm vpsId={vps.id} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <CreateSiteForm 
+                        onSubmit={handleCreateSite} 
+                        onCancel={() => setModalState({ type: '', isOpen: false })} 
+                    />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'install-ssl' && (
