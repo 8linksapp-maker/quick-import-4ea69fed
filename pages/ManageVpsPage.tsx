@@ -33,27 +33,13 @@ const CreateSiteForm = ({ vpsId, onActionComplete, onCancel }) => {
         const { data, error: invokeError } = await supabase.functions.invoke('create-wordpress-site', {
           body: { vpsId, domain, user, pass, email },
         });
-        if (invokeError) {
-            const errText = `Invoke Error: ${JSON.stringify(invokeError, null, 2)}`;
-            setError(errText);
-            alert('OCORREU UM ERRO:\n\n' + errText);
-            throw new Error(errText);
-        }
-        if (data.error) {
-            const errText = `Function Error: ${JSON.stringify(data.error, null, 2)}`;
-            setError(errText);
-            alert('OCORREU UM ERRO:\n\n' + errText);
-            throw new Error(errText);
-        }
-        onActionComplete(data.stdout || 'Comando executado, mas não houve output.');
+
+        if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
+        if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
+
+        onActionComplete(data);
       } catch (err: any) {
-        // The error is already handled and alerted above, this is a fallback.
-        console.error(err);
-        if (!error) { // Avoid setting error twice
-            const errText = `Catch Block Error: ${err.message}`;
-            setError(errText);
-            alert('OCORREU UM ERRO INESPERADO:\n\n' + errText);
-        }
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -89,13 +75,11 @@ const InstallSslForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
             const { data, error: invokeError } = await supabase.functions.invoke('install-ssl-site', {
                 body: { vpsId, domain },
             });
-            if (invokeError) throw invokeError;
-            if (data.error) throw new Error(data.error);
-            onActionComplete(data.stdout || 'Comando executado, mas não houve output.');
+            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
+            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
+            onActionComplete(data);
         } catch (err: any) {
-            const errText = `Error: ${err.message || JSON.stringify(err, null, 2)}`;
-            setError(errText);
-            alert('OCORREU UM ERRO:\n\n' + errText);
+            setError(err.message);
         } finally {
             setLoading(false);
         }
@@ -131,13 +115,11 @@ const ManageWpUsersForm = ({ vpsId, sites, onActionComplete, onCancel }) => {
             const { data, error: invokeError } = await supabase.functions.invoke('get-wp-users', {
                 body: { vpsId, domain },
             });
-            if (invokeError) throw invokeError;
-            if (data.error) throw new Error(data.error);
-            onActionComplete(JSON.stringify(data.users || data, null, 2));
+            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
+            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
+            onActionComplete(data);
         } catch (err: any) {
-            const errText = `Error: ${err.message || JSON.stringify(err, null, 2)}`;
-            setError(errText);
-            alert('OCORREU UM ERRO:\n\n' + errText);
+            setError(err.message);
         } finally {
             setLoading(false);
         }
@@ -246,39 +228,26 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
 
-    const handleAction = async (action: string, params: any = {}) => {
+    const processAction = async (action: string, params: any = {}) => {
+        setModalState({ type: '', isOpen: false }); // Close any open modal
         setActionLoading(action);
         setError(null);
         try {
             const { data, error: invokeError } = await supabase.functions.invoke(action, { body: { vpsId: vps.id, ...params } });
-            if (invokeError) {
-                const errText = `Invoke Error: ${JSON.stringify(invokeError, null, 2)}`;
-                alert('OCORREU UM ERRO:\n\n' + errText);
-                throw new Error(errText);
-            }
-            if (data.error) {
-                const errText = `Function Error: ${JSON.stringify(data.error, null, 2)}`;
-                alert('OCORREU UM ERRO:\n\n' + errText);
-                throw new Error(errText);
-            }
             
-            let outputString = 'Ação concluída com sucesso.';
-            if (data.stdout) outputString = data.stdout;
-            else if (data.users) outputString = JSON.stringify(data.users, null, 2);
-            else if (data.message) outputString = data.message;
-            else if (Object.keys(data).length > 0) outputString = JSON.stringify(data, null, 2);
-
+            if (invokeError) throw new Error(`Invoke Error: ${JSON.stringify(invokeError, null, 2)}`);
+            if (data.error) throw new Error(`Function Error: ${JSON.stringify(data.error, null, 2)}`);
+            
+            const outputString = `STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`;
             setOutput(outputString);
 
             if (action === 'delete-vps-credentials') {
                 onVpsDeleted();
             }
         } catch (err: any) {
-            console.error(err);
-            setOutput(`ERRO: ${err.message}`);
+            setOutput(`ERRO CAPTURADO NO CLIENTE:\n\n${err.message}`);
         } finally {
             setActionLoading(null);
-            setModalState({ type: '', isOpen: false });
             if (action === 'install-wordops') checkWoStatus();
         }
     };
@@ -306,7 +275,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         if (woStatus === 'not-installed') {
             return (
               <div className="max-w-sm mx-auto">
-                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) handleAction('install-wordops')}} loading={actionLoading === 'install-wordops'} />
+                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) processAction('install-wordops')}} loading={actionLoading === 'install-wordops'} />
               </div>
             );
         }
@@ -334,22 +303,22 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
             {modalState.isOpen && modalState.type === 'create-site' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Criar Novo Site WordPress">
-                    <CreateSiteForm vpsId={vps.id} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <CreateSiteForm vpsId={vps.id} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'install-ssl' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Instalar SSL em um Site">
-                    <InstallSslForm vpsId={vps.id} sites={sites} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <InstallSslForm vpsId={vps.id} sites={sites} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${data.stdout || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'manage-wp-users' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Gerenciar Usuários WordPress">
-                    <ManageWpUsersForm vpsId={vps.id} sites={sites} onActionComplete={(out) => { setOutput(out); setModalState({ type: '', isOpen: false }); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <ManageWpUsersForm vpsId={vps.id} sites={sites} onActionComplete={(data) => { setModalState({type: '', isOpen: false}); setOutput(`STDOUT:\n${JSON.stringify(data.users, null, 2) || '(vazio)'}\n\nSTDERR:\n${data.stderr || '(vazio)'}`); }} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'delete-vps' && (
                 <DeleteVpsModal 
-                    onConfirm={() => handleAction('delete-vps-credentials')}
+                    onConfirm={() => processAction('delete-vps-credentials')}
                     onCancel={() => setModalState({ type: '', isOpen: false })}
                 />
             )}
