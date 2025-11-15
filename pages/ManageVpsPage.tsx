@@ -228,6 +228,10 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     
         clearInterval(progressInterval);
 
+        console.log("--- RAW RESPONSE FROM SUPABASE FUNCTION ---");
+        console.log("invokeError:", JSON.stringify(invokeError, null, 2));
+        console.log("data:", JSON.stringify(data, null, 2));
+
         if (invokeError || data.error) {
             const errorPayload = invokeError ? invokeError.message : JSON.stringify(data.error);
             const isSslError = typeof errorPayload === 'string' && (errorPayload.includes("Aborting SSL certificate issuance") || errorPayload.includes("Please make sure your domain is pointed to this server"));
