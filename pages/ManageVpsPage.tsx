@@ -230,18 +230,30 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
         if (invokeError || data.error) {
             const errorPayload = invokeError ? invokeError.message : JSON.stringify(data.error);
-            const isSslError = typeof errorPayload === 'string' && errorPayload.includes("Aborting SSL certificate issuance");
+            const isSslError = typeof errorPayload === 'string' && (errorPayload.includes("Aborting SSL certificate issuance") || errorPayload.includes("Please make sure your domain is pointed to this server"));
 
             if (isSslError) {
-                setActiveJob({ 
-                    title: 'Site Criado com Aviso', 
-                    status: 'completed', 
-                    progress: 100,
-                    warning: 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.' 
-                });
-                fetchSites();
-                setTimeout(() => setActiveJob(null), 15000);
+                if (action === 'create-wordpress-site') {
+                    // Partial success for CREATE action
+                    setActiveJob({ 
+                        title: 'Site Criado com Aviso', 
+                        status: 'completed', 
+                        progress: 100,
+                        warning: 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.' 
+                    });
+                    fetchSites();
+                    setTimeout(() => setActiveJob(null), 15000);
+                } else {
+                    // Total failure for any other action (e.g., install-ssl-site)
+                    setActiveJob({ 
+                        title: `Falha ao Instalar SSL`, 
+                        status: 'failed', 
+                        progress: 100,
+                        error: 'A instalação do SSL falhou. Verifique se o DNS do domínio está apontado corretamente para o IP do servidor e tente novamente.'
+                    });
+                }
             } else {
+                // Generic failure for all other errors
                 setActiveJob({ title: `Falha: ${title}`, status: 'failed', progress: 100, error: errorPayload });
             }
             return;
