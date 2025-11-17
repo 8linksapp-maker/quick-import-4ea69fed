@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../src/supabaseClient';
 import InputField from '../components/InputField';
 import VpsCard, { VpsData } from '../components/VpsCard';
@@ -80,6 +80,63 @@ const ManageWpUsersForm = ({ sites, onSubmit, onCancel }) => {
     );
 };
 
+const AddWpUserForm = ({ domain, onSubmit, onCancel }) => {
+    const [userLogin, setUserLogin] = useState('');
+    const [userPass, setUserPass] = useState('');
+    const [userEmail, setUserEmail] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSubmit({ domain, user_login: userLogin, user_pass: userPass, user_email: userEmail, role: 'subscriber' });
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <InputField label="Username" id="user_login" type="text" value={userLogin} onChange={(e) => setUserLogin(e.target.value)} required />
+            <InputField label="Password" id="user_pass" type="password" value={userPass} onChange={(e) => setUserPass(e.target.value)} required />
+            <InputField label="Email" id="user_email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} required />
+            <div className="flex justify-end items-center gap-4 mt-6">
+                <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
+                <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                    Adicionar Usuário
+                </button>
+            </div>
+        </form>
+    );
+};
+
+const EditWpUserForm = ({ user, domain, onSubmit, onCancel }) => {
+    const [userPass, setUserPass] = useState('');
+    const [userRole, setUserRole] = useState(user.roles);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSubmit({ domain, userId: user.ID, user_pass: userPass, role: userRole });
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <p className="mb-4 text-gray-300">Editando usuário: <strong>{user.user_login}</strong></p>
+            <InputField label="Nova Senha (deixe em branco para não alterar)" id="user_pass" type="password" value={userPass} onChange={(e) => setUserPass(e.target.value)} />
+            <label htmlFor="user_role" className="block text-sm font-medium text-gray-300 mb-2">Role</label>
+            <select id="user_role" value={userRole} onChange={(e) => setUserRole(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="administrator">Administrator</option>
+                <option value="editor">Editor</option>
+                <option value="author">Author</option>
+                <option value="contributor">Contributor</option>
+                <option value="subscriber">Subscriber</option>
+            </select>
+            <div className="flex justify-end items-center gap-4 mt-6">
+                <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
+                <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                    Atualizar Usuário
+                </button>
+            </div>
+        </form>
+    );
+};
+
+
 const DeleteVpsModal = ({ onConfirm, onCancel }) => {
     const [confirmationText, setConfirmationText] = useState('');
     const isConfirmed = confirmationText === 'EXCLUIR';
@@ -110,6 +167,27 @@ const DeleteVpsModal = ({ onConfirm, onCancel }) => {
     );
 };
 
+const DeleteWpUserModal = ({ user, onConfirm, onCancel }) => {
+    if (!user) return null;
+    return (
+        <Modal isOpen={true} onClose={onCancel} title="Confirmar Exclusão de Usuário">
+            <p className="text-gray-300 mb-4">
+                Tem certeza que deseja excluir o usuário <strong>{user.user_login}</strong>? Esta ação é irreversível.
+            </p>
+            <div className="flex justify-end items-center gap-4 mt-6">
+                <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
+                <button 
+                    type="button" 
+                    onClick={() => onConfirm(user)} 
+                    className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700"
+                >
+                    Excluir Usuário
+                </button>
+            </div>
+        </Modal>
+    );
+};
+
 const ActionCard = ({ title, onClick, loading = false }) => (
     <div 
       className={`bg-gray-800 border border-gray-700 rounded-lg p-6 text-center transition-colors ${!loading ? 'cursor-pointer hover:bg-gray-700 hover:border-blue-500' : 'opacity-50 cursor-not-allowed'}`}
@@ -122,7 +200,7 @@ const ActionCard = ({ title, onClick, loading = false }) => (
     </div>
 );
 
-const JobStatus = ({ title, status, error, warning, progress }) => {
+const JobStatus = ({ title, status, error, warning, logContent }) => {
     let statusInfo = {
         color: 'blue',
         textColor: 'text-blue-300',
@@ -152,18 +230,56 @@ const JobStatus = ({ title, status, error, warning, progress }) => {
                 <div className={`mr-4 ${statusInfo.iconColor}`}>{statusInfo.icon}</div>
                 <div className="w-full">
                     <p className={`font-semibold text-lg ${statusInfo.textColor}`}>{title}</p>
-                    {status === 'running' && (
-                        <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
-                            <div className={`bg-${statusInfo.color}-600 h-2.5 rounded-full transition-all duration-500`} style={{ width: `${progress}%` }}></div>
-                        </div>
-                    )}
+                    {logContent && <pre className="text-gray-400 text-xs mt-2 bg-gray-900/50 p-2 rounded whitespace-pre-wrap max-h-48 overflow-y-auto">{logContent}</pre>}
                     {warning && <p className="text-yellow-400 text-sm mt-2">{warning}</p>}
-                    {error && <pre className="text-red-400 text-sm mt-2 bg-red-900/50 p-2 rounded whitespace-pre-wrap">{error}</pre>}
+                    {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
                 </div>
             </div>
         </div>
     );
 };
+
+const WpUsersModal = ({ users, onClose, onAdd, onEdit, onDelete }) => (
+    <Modal isOpen={true} onClose={onClose} title="Usuários WordPress">
+        <div className="mb-4">
+            <button onClick={onAdd} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+                Adicionar Novo Usuário
+            </button>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm text-left text-gray-400">
+                <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                    <tr>
+                        <th scope="col" className="px-6 py-3">ID</th>
+                        <th scope="col" className="px-6 py-3">Login</th>
+                        <th scope="col" className="px-6 py-3">Email</th>
+                        <th scope="col" className="px-6 py-3">Role</th>
+                        <th scope="col" className="px-6 py-3">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {users.map((user) => (
+                        <tr key={user.ID} className="bg-gray-800 border-b border-gray-700">
+                            <td className="px-6 py-4">{user.ID}</td>
+                            <td className="px-6 py-4">{user.user_login}</td>
+                            <td className="px-6 py-4">{user.user_email}</td>
+                            <td className="px-6 py-4">{user.roles}</td>
+                            <td className="px-6 py-4">
+                                <button onClick={() => onEdit(user)} className="font-medium text-blue-500 hover:underline mr-4">Editar</button>
+                                <button onClick={() => onDelete(user)} className="font-medium text-red-500 hover:underline">Deletar</button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+        <div className="flex justify-end mt-4">
+            <button onClick={onClose} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                Fechar
+            </button>
+        </div>
+    </Modal>
+);
 
 const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
@@ -171,8 +287,16 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [sitesLoading, setSitesLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [modalState, setModalState] = useState({ type: '', isOpen: false });
-    const [output, setOutput] = useState('');
-    const [activeJob, setActiveJob] = useState<{ title: string; status: 'running' | 'completed' | 'failed'; progress: number; error?: string; warning?: string; } | null>(null);
+    
+    const [activeJob, setActiveJob] = useState<{ action: string, title: string; status: 'running' | 'completed' | 'failed'; logFileName?: string; pidFileName?: string; logContent?: string; error?: string; warning?: string; } | null>(null);
+    const pollingRef = useRef<number | null>(null);
+
+    const [wpUsers, setWpUsers] = useState<any[]>([]);
+    const [showWpUsersModal, setShowWpUsersModal] = useState(false);
+    const [showAddUserModal, setShowAddUserModal] = useState(false);
+    const [currentUserDomain, setCurrentUserDomain] = useState<string | null>(null);
+    const [userToDelete, setUserToDelete] = useState<any | null>(null);
+    const [userToEdit, setUserToEdit] = useState<any | null>(null);
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -207,75 +331,114 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
 
-    const processAction = async ({ action, params, title, successMessage, duration = 90 }) => {
-        setModalState({ type: '', isOpen: false });
-        setActiveJob({ title, status: 'running', progress: 0 });
-    
-        const progressInterval = setInterval(() => {
-            setActiveJob(prev => {
-                if (!prev) {
-                    clearInterval(progressInterval);
-                    return null;
-                }
-                const newProgress = Math.min(prev.progress + 1, 90);
-                return { ...prev, progress: newProgress };
-            });
-        }, (duration * 1000) / 90);
-    
-        const { data, error: invokeError } = await supabase.functions.invoke(action, {
-            body: { vpsId: vps.id, ...params },
-        });
-    
-        clearInterval(progressInterval);
+    const stopPolling = () => {
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+    };
 
-        console.log("--- RAW RESPONSE FROM SUPABASE FUNCTION ---");
-        console.log("invokeError:", JSON.stringify(invokeError, null, 2));
-        console.log("data:", JSON.stringify(data, null, 2));
+    const handleJobCompletion = (job) => {
+        const finalLog = job.logContent || '';
+        const isSuccess = !finalLog.toLowerCase().includes('fail') && !finalLog.toLowerCase().includes('error');
+        
+        let finalStatus: 'completed' | 'failed' = isSuccess ? 'completed' : 'failed';
+        let finalTitle = `${job.title} concluído!`;
+        let finalError, finalWarning;
 
-        if (invokeError || data.error) {
-            const errorPayload = invokeError ? invokeError.message : JSON.stringify(data.error);
-            const isSslError = typeof errorPayload === 'string' && (errorPayload.includes("Aborting SSL certificate issuance") || errorPayload.includes("Please make sure your domain is pointed to this server"));
+        if (job.action === 'create-wordpress-site' && finalLog.includes("Aborting SSL certificate issuance")) {
+            finalStatus = 'completed';
+            finalTitle = 'Site Criado com Aviso';
+            finalWarning = 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.';
+        } else if (!isSuccess) {
+            finalTitle = `Falha: ${job.title}`;
+            finalError = 'A operação falhou. Verifique os logs para mais detalhes.';
+        }
 
-            if (isSslError) {
-                if (action === 'create-wordpress-site') {
-                    // Partial success for CREATE action
-                    setActiveJob({ 
-                        title: 'Site Criado com Aviso', 
-                        status: 'completed', 
-                        progress: 100,
-                        warning: 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.' 
-                    });
-                    fetchSites();
-                    setTimeout(() => setActiveJob(null), 15000);
-                } else {
-                    // Total failure for any other action (e.g., install-ssl-site)
-                    setActiveJob({ 
-                        title: `Falha ao Instalar SSL`, 
-                        status: 'failed', 
-                        progress: 100,
-                        error: 'A instalação do SSL falhou. Verifique se o DNS do domínio está apontado corretamente para o IP do servidor e tente novamente.'
-                    });
-                }
-            } else {
-                // Generic failure for all other errors
-                setActiveJob({ title: `Falha: ${title}`, status: 'failed', progress: 100, error: errorPayload });
+        setActiveJob(prev => prev ? { ...prev, status: finalStatus, title: finalTitle, error: finalError, warning: finalWarning } : null);
+        
+        // Refresh data based on action
+        if (isSuccess) {
+            if (job.action.includes('site')) fetchSites();
+            if (job.action.includes('wp-user')) {
+                runSimpleAction({ action: 'get-wp-users', params: { domain: currentUserDomain }, title: 'Listando usuários...' });
             }
+            if (job.action === 'install-wordops') checkWoStatus();
+        }
+
+        setTimeout(() => setActiveJob(null), 15000);
+    };
+
+    const pollJobStatus = useCallback(async (job) => {
+        const { data, error } = await supabase.functions.invoke('get-log-and-status', {
+            body: { vpsId: vps.id, logFileName: job.logFileName, pidFileName: job.pidFileName },
+        });
+
+        if (error) {
+            setActiveJob(prev => prev ? { ...prev, status: 'failed', error: `Erro ao consultar status: ${error.message}` } : null);
+            stopPolling();
             return;
         }
-    
-        setActiveJob({ title: successMessage || `${title} concluído!`, status: 'completed', progress: 100 });
+
+        setActiveJob(prev => prev ? { ...prev, logContent: data.logContent } : null);
+
+        if (data.status === 'finished') {
+            stopPolling();
+            handleJobCompletion({ ...job, logContent: data.logContent });
+        }
+    }, [vps.id, currentUserDomain]);
+
+
+    useEffect(() => {
+        if (activeJob?.status === 'running' && activeJob.logFileName && activeJob.pidFileName && !pollingRef.current) {
+            pollingRef.current = setInterval(() => {
+                pollJobStatus(activeJob);
+            }, 3000);
+        }
+        return () => stopPolling();
+    }, [activeJob, pollJobStatus]);
+
+
+    const startAction = async ({ action, params, title }) => {
+        setModalState({ type: '', isOpen: false });
+        setActiveJob({ action, title, status: 'running' });
+
+        try {
+            const { data, error } = await supabase.functions.invoke('start-long-action', {
+                body: { vpsId: vps.id, action, params },
+            });
+
+            if (error || data.error) throw error || new Error(data.error);
+            
+            setActiveJob(prev => prev ? { ...prev, logFileName: data.logFileName, pidFileName: data.pidFileName } : null);
+
+        } catch (err: any) {
+            setActiveJob({ action, title, status: 'failed', error: err.message });
+        }
+    };
+
+    const runSimpleAction = async ({ action, params, title }) => {
+        setModalState({ type: '', isOpen: false });
         
-        if (action === 'get-wp-users') {
-            setOutput(`Usuários:\n${JSON.stringify(data.users, null, 2)}`);
-        }
-        if (action.includes('delete')) {
-            onVpsDeleted();
-        }
+        try {
+            const { data, error } = await supabase.functions.invoke(action, {
+                body: { vpsId: vps.id, ...params },
+            });
 
-        if (action === 'install-wordops') checkWoStatus();
-        if (action === 'create-wordpress-site' || action === 'install-ssl-site') fetchSites();
+            if (error || data.error) throw error || new Error(JSON.stringify(data.error));
 
-        setTimeout(() => setActiveJob(null), 8000);
+            if (action === 'get-wp-users') {
+                setWpUsers(data.users || []);
+                setCurrentUserDomain(params.domain);
+                setShowWpUsersModal(true);
+            }
+             if (action === 'delete-vps-credentials') {
+                onVpsDeleted();
+            }
+
+        } catch (err: any) {
+            setError(`Falha ao executar ${title}: ${err.message}`);
+        }
     };
 
     const renderPanelContent = () => {
@@ -298,7 +461,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         if (woStatus === 'not-installed') {
             return (
               <div className="max-w-sm mx-auto">
-                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) processAction({ action: 'install-wordops', params: { username: 'admin', email: 'admin@example.com' }, title: 'Instalando WordOps...', duration: 300 })}} loading={isJobRunning} />
+                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: { username: 'admin', email: 'admin@example.com' }, title: 'Instalando WordOps' })}} loading={isJobRunning} />
               </div>
             );
         }
@@ -328,23 +491,58 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
             {modalState.isOpen && modalState.type === 'create-site' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Criar Novo Site WordPress">
-                    <CreateSiteForm onSubmit={(params) => processAction({ action: 'create-wordpress-site', params, title: `Criando site ${params.domain}...` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <CreateSiteForm onSubmit={(params) => startAction({ action: 'create-wordpress-site', params, title: `Criando site ${params.domain}` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'install-ssl' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Instalar SSL em um Site">
-                    <InstallSslForm sites={sites} onSubmit={(params) => processAction({ action: 'install-ssl-site', params, title: `Instalando SSL em ${params.domain}...` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <InstallSslForm sites={sites} onSubmit={(params) => startAction({ action: 'install-ssl-site', params, title: `Instalando SSL em ${params.domain}` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'manage-wp-users' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Gerenciar Usuários WordPress">
-                    <ManageWpUsersForm sites={sites} onSubmit={(params) => processAction({ action: 'get-wp-users', params, title: `Buscando usuários em ${params.domain}...`, duration: 10 })} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    <ManageWpUsersForm sites={sites} onSubmit={(params) => runSimpleAction({ action: 'get-wp-users', params, title: 'Buscando usuários...' })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'delete-vps' && (
-                <DeleteVpsModal onConfirm={() => processAction({ action: 'delete-vps-credentials', params: { id: vps.id }, title: 'Excluindo VPS...', duration: 10 })} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                <DeleteVpsModal onConfirm={() => runSimpleAction({ action: 'delete-vps-credentials', params: { id: vps.id }, title: 'Excluindo VPS...' })} onCancel={() => setModalState({ type: '', isOpen: false })} />
             )}
-            {output && <OutputModal output={output} onClose={() => setOutput('')} />}
+            
+            {showWpUsersModal && (
+                <WpUsersModal
+                    users={wpUsers}
+                    onClose={() => setShowWpUsersModal(false)}
+                    onAdd={() => { setShowWpUsersModal(false); setShowAddUserModal(true); }}
+                    onEdit={(user) => { setShowWpUsersModal(false); setUserToEdit(user); }}
+                    onDelete={(user) => setUserToDelete(user)}
+                />
+            )}
+            {showAddUserModal && (
+                <Modal isOpen={true} onClose={() => setShowAddUserModal(false)} title={`Adicionar Usuário em ${currentUserDomain}`}>
+                    <AddWpUserForm
+                        domain={currentUserDomain}
+                        onSubmit={(params) => startAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.user_login}` })}
+                        onCancel={() => setShowAddUserModal(false)}
+                    />
+                </Modal>
+            )}
+            {userToEdit && (
+                <Modal isOpen={true} onClose={() => setUserToEdit(null)} title={`Editar Usuário em ${currentUserDomain}`}>
+                    <EditWpUserForm
+                        user={userToEdit}
+                        domain={currentUserDomain}
+                        onSubmit={(params) => startAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })}
+                        onCancel={() => setUserToEdit(null)}
+                    />
+                </Modal>
+            )}
+            {userToDelete && (
+                <DeleteWpUserModal
+                    user={userToDelete}
+                    onConfirm={(user) => startAction({ action: 'delete-wp-user', params: { domain: currentUserDomain, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })}
+                    onCancel={() => setUserToDelete(null)}
+                />
+            )}
         </div>
     );
 };
