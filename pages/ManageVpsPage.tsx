@@ -292,8 +292,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const pollingRef = useRef<number | null>(null);
 
     const [wpUsers, setWpUsers] = useState<any[]>([]);
-    const [showWpUsersModal, setShowWpUsersModal] = useState(false);
-    const [showAddUserModal, setShowAddUserModal] = useState(false);
+    const [userMgmtView, setUserMgmtView] = useState('select_site'); // select_site, loading, user_list
     const [currentUserDomain, setCurrentUserDomain] = useState<string | null>(null);
     const [userToDelete, setUserToDelete] = useState<any | null>(null);
     const [userToEdit, setUserToEdit] = useState<any | null>(null);
@@ -357,11 +356,10 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
         setActiveJob(prev => prev ? { ...prev, status: finalStatus, title: finalTitle, error: finalError, warning: finalWarning } : null);
         
-        // Refresh data based on action
         if (isSuccess) {
             if (job.action.includes('site')) fetchSites();
             if (job.action.includes('wp-user')) {
-                runSimpleAction({ action: 'get-wp-users', params: { domain: currentUserDomain }, title: 'Listando usuários...' });
+                handleGetUsers({ domain: currentUserDomain });
             }
             if (job.action === 'install-wordops') checkWoStatus();
         }
@@ -401,6 +399,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
     const startAction = async ({ action, params, title }) => {
         setModalState({ type: '', isOpen: false });
+        setUserMgmtView('select_site');
         setActiveJob({ action, title, status: 'running' });
 
         try {
@@ -417,27 +416,73 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         }
     };
 
-    const runSimpleAction = async ({ action, params, title }) => {
-        setModalState({ type: '', isOpen: false });
-        
+    const handleGetUsers = async ({ domain }) => {
+        setUserMgmtView('loading');
+        setCurrentUserDomain(domain);
         try {
-            const { data, error } = await supabase.functions.invoke(action, {
-                body: { vpsId: vps.id, ...params },
+            const { data, error } = await supabase.functions.invoke('get-wp-users', {
+                body: { vpsId: vps.id, domain },
             });
 
             if (error || data.error) throw error || new Error(JSON.stringify(data.error));
-
-            if (action === 'get-wp-users') {
-                setWpUsers(data.users || []);
-                setCurrentUserDomain(params.domain);
-                setShowWpUsersModal(true);
-            }
-             if (action === 'delete-vps-credentials') {
-                onVpsDeleted();
-            }
+            
+            setWpUsers(data.users || []);
+            setUserMgmtView('user_list');
 
         } catch (err: any) {
-            setError(`Falha ao executar ${title}: ${err.message}`);
+            setError(`Falha ao buscar usuários: ${err.message}`);
+            setUserMgmtView('select_site'); // Go back to selection on error
+        }
+    };
+
+    const renderUserManagementContent = () => {
+        switch (userMgmtView) {
+            case 'loading':
+                return <div className="text-center p-8"><LoadingSpinner /></div>;
+            case 'user_list':
+                return (
+                    <WpUsersModal
+                        users={wpUsers}
+                        onClose={() => setModalState({ type: '', isOpen: false })}
+                        onAdd={() => setUserMgmtView('add_user')}
+                        onEdit={(user) => { setUserToEdit(user); setUserMgmtView('edit_user'); }}
+                        onDelete={(user) => { setUserToDelete(user); setUserMgmtView('confirm_delete'); }}
+                    />
+                );
+            case 'add_user':
+                return (
+                    <AddWpUserForm
+                        domain={currentUserDomain}
+                        onSubmit={(params) => startAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.user_login}` })}
+                        onCancel={() => setUserMgmtView('user_list')}
+                    />
+                );
+            case 'edit_user':
+                return (
+                    <EditWpUserForm
+                        user={userToEdit}
+                        domain={currentUserDomain}
+                        onSubmit={(params) => startAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })}
+                        onCancel={() => setUserMgmtView('user_list')}
+                    />
+                );
+            case 'confirm_delete':
+                return (
+                    <DeleteWpUserModal
+                        user={userToDelete}
+                        onConfirm={(user) => startAction({ action: 'delete-wp-user', params: { domain: currentUserDomain, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })}
+                        onCancel={() => setUserMgmtView('user_list')}
+                    />
+                );
+            case 'select_site':
+            default:
+                return (
+                    <ManageWpUsersForm 
+                        sites={sites} 
+                        onSubmit={handleGetUsers} 
+                        onCancel={() => setModalState({ type: '', isOpen: false })} 
+                    />
+                );
         }
     };
 
@@ -453,7 +498,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} loading={isJobRunning} />
                 <ActionCard title="Instalar SSL em um Site" onClick={() => setModalState({ type: 'install-ssl', isOpen: true })} loading={isJobRunning} />
-                <ActionCard title="Gerenciar Usuários WP" onClick={() => setModalState({ type: 'manage-wp-users', isOpen: true })} loading={isJobRunning} />
+                <ActionCard title="Gerenciar Usuários WP" onClick={() => { setUserMgmtView('select_site'); setModalState({ type: 'manage-wp-users', isOpen: true }); }} loading={isJobRunning} />
                 <ActionCard title="Deletar VPS" onClick={() => setModalState({ type: 'delete-vps', isOpen: true })} loading={isJobRunning} />
               </div>
             );
@@ -461,7 +506,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         if (woStatus === 'not-installed') {
             return (
               <div className="max-w-sm mx-auto">
-                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: { username: 'admin', email: 'admin@example.com' }, title: 'Instalando WordOps' })}} loading={isJobRunning} />
+                  <ActionCard title="Instalar WordOps" onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} loading={isJobRunning} />
               </div>
             );
         }
@@ -501,47 +546,11 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
             )}
             {modalState.isOpen && modalState.type === 'manage-wp-users' && (
                 <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Gerenciar Usuários WordPress">
-                    <ManageWpUsersForm sites={sites} onSubmit={(params) => runSimpleAction({ action: 'get-wp-users', params, title: 'Buscando usuários...' })} onCancel={() => setModalState({ type: '', isOpen: false })} />
+                    {renderUserManagementContent()}
                 </Modal>
             )}
             {modalState.isOpen && modalState.type === 'delete-vps' && (
-                <DeleteVpsModal onConfirm={() => runSimpleAction({ action: 'delete-vps-credentials', params: { id: vps.id }, title: 'Excluindo VPS...' })} onCancel={() => setModalState({ type: '', isOpen: false })} />
-            )}
-            
-            {showWpUsersModal && (
-                <WpUsersModal
-                    users={wpUsers}
-                    onClose={() => setShowWpUsersModal(false)}
-                    onAdd={() => { setShowWpUsersModal(false); setShowAddUserModal(true); }}
-                    onEdit={(user) => { setShowWpUsersModal(false); setUserToEdit(user); }}
-                    onDelete={(user) => setUserToDelete(user)}
-                />
-            )}
-            {showAddUserModal && (
-                <Modal isOpen={true} onClose={() => setShowAddUserModal(false)} title={`Adicionar Usuário em ${currentUserDomain}`}>
-                    <AddWpUserForm
-                        domain={currentUserDomain}
-                        onSubmit={(params) => startAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.user_login}` })}
-                        onCancel={() => setShowAddUserModal(false)}
-                    />
-                </Modal>
-            )}
-            {userToEdit && (
-                <Modal isOpen={true} onClose={() => setUserToEdit(null)} title={`Editar Usuário em ${currentUserDomain}`}>
-                    <EditWpUserForm
-                        user={userToEdit}
-                        domain={currentUserDomain}
-                        onSubmit={(params) => startAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })}
-                        onCancel={() => setUserToEdit(null)}
-                    />
-                </Modal>
-            )}
-            {userToDelete && (
-                <DeleteWpUserModal
-                    user={userToDelete}
-                    onConfirm={(user) => startAction({ action: 'delete-wp-user', params: { domain: currentUserDomain, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })}
-                    onCancel={() => setUserToDelete(null)}
-                />
+                <DeleteVpsModal onConfirm={() => startAction({ action: 'delete-vps-credentials', params: { id: vps.id }, title: 'Excluindo VPS...' })} onCancel={() => setModalState({ type: '', isOpen: false })} />
             )}
         </div>
     );
