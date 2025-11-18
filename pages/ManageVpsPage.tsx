@@ -400,7 +400,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const startAction = async ({ action, params, title }) => {
         setModalState({ type: '', isOpen: false });
         setUserMgmtView('select_site');
-        setActiveJob({ action, title, status: 'running' });
+        // setActiveJob({ action, title, status: 'running' }); // Remover esta linha para depuração
 
         try {
             const { data, error } = await supabase.functions.invoke('start-long-action', {
@@ -409,10 +409,18 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
             if (error || data.error) throw error || new Error(data.error);
             
-            setActiveJob(prev => prev ? { ...prev, logFileName: data.logFileName, pidFileName: data.pidFileName } : null);
+            // AGORA, data contém stdout, stderr, exitCode, status
+            alert(`Comando ${action} concluído.\n\nSTDOUT:\n${data.stdout}\n\nSTDERR:\n${data.stderr}\n\nExit Code: ${data.exitCode}`);
+
+            // Se for um comando que modifica usuários, recarrega a lista
+            if (action.includes('wp-user')) {
+                // handleGetUsers({ domain: currentUserDomain }); // Desabilitado para depuração
+                setModalState({ type: '', isOpen: false });
+            }
 
         } catch (err: any) {
-            setActiveJob({ action, title, status: 'failed', error: err.message });
+            alert(`Erro ao executar ${action}: ${err.message}`);
+            // setActiveJob({ action, title, status: 'failed', error: err.message }); // Remover esta linha para depuração
         }
     };
 

@@ -65,10 +65,9 @@ serve(async (req) => {
     const command = getCommand(action, params);
     const logFileName = `wo-action-${Date.now()}.log`;
     const pidFileName = `${logFileName}.pid`;
-    const fullCommand = `nohup bash -c '${command}' > /tmp/${logFileName} 2>&1 & echo $! > /tmp/${pidFileName}`;
+    const commandToExecute = `bash -c 'set -x; ${command}'`;
 
-    // We don't wait for this response, it just kicks off the process
-    fetch(`${sshServiceUrl}/execute`, {
+    const sshResponse = await fetch(`${sshServiceUrl}/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -76,13 +75,24 @@ serve(async (req) => {
         port: credentials.port,
         username: credentials.username,
         password: credentials.encrypted_password,
-        command: fullCommand,
-        wait_for_output: false // Fire-and-forget
+        command: commandToExecute,
+        wait_for_output: true
       }),
     });
 
-    // Return the log and pid file names to the client so it can start polling
-    return new Response(JSON.stringify({ logFileName, pidFileName }), {
+    if (!sshResponse.ok) {
+        const errorBody = await sshResponse.text();
+        throw new Error(`SSH service responded with an error: ${sshResponse.status} - ${errorBody}`);
+    }
+
+    const sshData = await sshResponse.json();
+
+    return new Response(JSON.stringify({
+        stdout: sshData.stdout,
+        stderr: sshData.stderr,
+        exitCode: sshData.exitCode,
+        status: 'finished'
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
