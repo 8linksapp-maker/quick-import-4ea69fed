@@ -173,7 +173,7 @@ const ManageUsersPage: React.FC = () => {
                 }
 
                 if (data) {
-                    setUsers(users.map(u => u.id === data.id ? data : u));
+                    setUsers(users.map(u => u.id === data.data.user.id ? data.data.user : u));
                 }
                 closeEditModal();
             } catch (error: any) {
@@ -186,12 +186,14 @@ const ManageUsersPage: React.FC = () => {
         try {
             const { data, error } = await supabase.functions.invoke('create-user', {
                 body: {
-                    email: newUser.email,
-                    password: newUser.password,
-                    email_confirm: true,
-                    user_metadata: {
-                        name: newUser.name,
-                        role: newUser.role,
+                    user: {
+                        email: newUser.email,
+                        password: newUser.password,
+                        email_confirm: true,
+                        user_metadata: {
+                            name: newUser.name,
+                            role: newUser.role,
+                        }
                     }
                 }
             });
@@ -199,7 +201,7 @@ const ManageUsersPage: React.FC = () => {
                 throw error;
             }
             if (data) {
-                setUsers([...users, data]);
+                setUsers([...users, data.data.user]);
             }
             closeAddModal();
         } catch (error: any) {

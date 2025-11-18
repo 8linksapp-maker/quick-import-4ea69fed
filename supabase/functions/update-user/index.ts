@@ -25,7 +25,7 @@ serve(async (req) => {
       throw error
     }
 
-    return new Response(JSON.stringify(data.user), {
+    return new Response(JSON.stringify({ data }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })

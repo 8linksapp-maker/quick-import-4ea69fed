@@ -9,7 +9,7 @@ serve(async (req) => {
   }
 
   try {
-    const userData = await req.json()
+    const { user: userData } = await req.json()
 
     // Create a Supabase client with the service_role key
     const supabaseClient = createClient(
@@ -23,7 +23,7 @@ serve(async (req) => {
       throw error
     }
 
-    return new Response(JSON.stringify(data.user), {
+    return new Response(JSON.stringify({ data }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 201,
     })
