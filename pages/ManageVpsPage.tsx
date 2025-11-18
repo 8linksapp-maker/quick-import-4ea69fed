@@ -87,7 +87,7 @@ const AddWpUserForm = ({ domain, onSubmit, onCancel }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ domain, user_login: userLogin, user_pass: userPass, user_email: userEmail, role: 'subscriber' });
+        onSubmit({ domain, username: userLogin, pass: userPass, email: userEmail, role: 'subscriber' });
     };
 
     return (
@@ -111,7 +111,7 @@ const EditWpUserForm = ({ user, domain, onSubmit, onCancel }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ domain, userId: user.ID, user_pass: userPass, role: userRole });
+        onSubmit({ domain, userId: user.ID, pass: userPass, role: userRole });
     };
 
     return (
