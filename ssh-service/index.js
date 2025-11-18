@@ -71,18 +71,19 @@ app.post('/execute', (req, res) => {
             stream.on('close', (code) => {
                 conn.end();
                 if (code !== 0) {
-                    return res.status(500).json({ 
-                        error: `Command failed with code ${code}`,
-                        stdout: stdout,
-                        stderr: stderr
-                    });
-                }
-                res.status(200).json({ 
-                    message: 'Command executed successfully', 
-                    stdout: stdout, 
-                    stderr: stderr 
-                });
-            }).on('data', (data) => {
+                                         return res.status(500).json({ 
+                                             error: `Command failed with code ${code}`,
+                                             stdout: stdout,
+                                             stderr: stderr,
+                                             exitCode: code
+                                         });
+                                     }
+                                     res.status(200).json({ 
+                                         message: 'Command executed successfully', 
+                                         stdout: stdout, 
+                                         stderr: stderr,
+                                         exitCode: code
+                                     });            }).on('data', (data) => {
                 stdout += data.toString();
             }).stderr.on('data', (data) => {
                 stderr += data.toString();
