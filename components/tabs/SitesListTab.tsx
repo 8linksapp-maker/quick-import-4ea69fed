@@ -120,5 +120,6 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
       )}
     </>
   );
+};
 
 export default SitesListTab;
