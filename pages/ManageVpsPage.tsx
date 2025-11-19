@@ -341,31 +341,39 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
     const handleJobCompletion = (job) => {
         const finalLog = job.logContent || '';
-        const isSuccess = !finalLog.toLowerCase().includes('fail') && 
-                          !finalLog.toLowerCase().includes('error') &&
-                          !finalLog.toLowerCase().includes('aborting');
         
-        let finalStatus: 'completed' | 'failed' = isSuccess ? 'completed' : 'failed';
-        let finalTitle = `${job.title} concluído!`;
+        let finalStatus: 'completed' | 'failed';
+        let finalTitle: string;
         let finalError, finalWarning;
 
-        if (job.action === 'create-wordpress-site' && finalLog.includes("Aborting SSL certificate issuance")) {
-            finalStatus = 'completed';
-            finalTitle = 'Site Criado com Aviso';
-            finalWarning = 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.';
-        } else if (job.action === 'install-ssl-site' && finalLog.includes("Aborting SSL certificate issuance")) {
+        // 1. Check for the specific SSL DNS warning
+        if (job.action === 'install-ssl-site' && finalLog.includes("Aborting SSL certificate issuance")) {
             finalStatus = 'completed';
             finalTitle = 'Instalação de SSL com Aviso';
             finalWarning = 'A instalação do SSL falhou porque o DNS não aponta para o servidor. Corrija o DNS e tente novamente.';
-        } else if (!isSuccess) {
+        
+        // 2. Check for the specific Site Creation DNS warning
+        } else if (job.action === 'create-wordpress-site' && finalLog.includes("Aborting SSL certificate issuance")) {
+            finalStatus = 'completed';
+            finalTitle = 'Site Criado com Aviso';
+            finalWarning = 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.';
+        
+        // 3. Check for generic failure (includes 'aborting' for other cases)
+        } else if (finalLog.toLowerCase().includes('fail') || finalLog.toLowerCase().includes('error') || finalLog.toLowerCase().includes('aborting')) {
+            finalStatus = 'failed';
             finalTitle = `Falha: ${job.title}`;
             finalError = 'A operação falhou. Verifique os logs para mais detalhes.';
+
+        // 4. If none of the above, assume success
+        } else {
+            finalStatus = 'completed';
+            finalTitle = `${job.title} concluído!`;
         }
 
         setActiveJob(prev => prev ? { ...prev, status: finalStatus, title: finalTitle, error: finalError, warning: finalWarning } : null);
         
-        // Only refetch on true success, not on warnings
-        if (isSuccess) {
+        // Only refetch on true success (no warnings, no errors)
+        if (finalStatus === 'completed' && !finalWarning) {
             if (job.action.includes('site')) fetchSites();
             if (job.action.includes('wp-user')) {
                 handleGetUsers({ domain: currentUserDomain });
