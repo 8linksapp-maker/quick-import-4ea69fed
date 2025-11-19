@@ -9,35 +9,31 @@ import { WpData } from '../WpCard';
 
 interface SitesListTabProps {
   refetchTrigger: number;
+  onSiteSelect: (siteDomain: string, vps?: VpsData, wpData?: WpData) => void;
+  connectedSites: WpData[];
 }
 
 interface CombinedSiteData {
-  id: string; 
+  id: string;
   site_url: string;
   type: 'connected' | 'installed';
   vps_host?: string;
-  wpData?: WpData; 
+  wpData?: WpData;
 }
 
-const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
+const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger, onSiteSelect, connectedSites }) => {
   const [view, setView] = useState('list');
   const [allSites, setAllSites] = useState<CombinedSiteData[]>([]);
   const [selectedSite, setSelectedSite] = useState<CombinedSiteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [siteToEdit, setSiteToEdit] = useState<WpData | null>(null);
 
   const fetchAllSites = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      // 1. Fetch connected WP sites
-      const { data: wpSitesData, error: wpSitesError } = await supabase.functions.invoke('get-wp-sites');
-      if (wpSitesError) throw wpSitesError;
-      
-      const connectedSites: CombinedSiteData[] = (wpSitesData.sites || []).map((site: WpData) => ({
+      const connectedSitesData: CombinedSiteData[] = connectedSites.map((site: WpData) => ({
         id: site.id.toString(),
         site_url: site.site_url,
         type: 'connected' as const,
@@ -67,7 +63,7 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
       const installedSites = installedSitesArrays.flat();
 
       // 4. Combine and deduplicate
-      const combined = [...connectedSites];
+      const combined = [...connectedSitesData];
       installedSites.forEach(installedSite => {
         if (!combined.some(s => s.site_url === installedSite.site_url)) {
           combined.push(installedSite);
@@ -81,18 +77,11 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [connectedSites]);
 
   useEffect(() => {
     fetchAllSites();
   }, [fetchAllSites, refetchTrigger]);
-  
-  const handleWpSiteUpdated = () => { fetchAllSites(); setIsEditModalOpen(false); };
-  
-  const handleEdit = (site: WpData) => {
-    setSiteToEdit(site);
-    setIsEditModalOpen(true);
-  };
   
   const handleDelete = (site: CombinedSiteData) => {
     if (site.type === 'connected' && site.wpData) {
@@ -110,11 +99,7 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
   };
 
   const handleViewDetails = (siteData: WpData) => {
-    const site = allSites.find(s => s.type === 'connected' && s.wpData?.id === siteData.id);
-    if (site) {
-      setSelectedSite(site);
-      setView('details');
-    }
+    onSiteSelect(siteData.site_url, undefined, siteData);
   };
 
   const filteredSites = allSites.filter(site => site.site_url.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -154,13 +139,7 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
   return (
     <>
       {renderListView()}
-      {siteToEdit && (
-        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Editar Site WordPress">
-          <EditWpSiteForm site={siteToEdit} onWpSiteUpdated={handleWpSiteUpdated} onCancel={() => setIsEditModalOpen(false)} />
-        </Modal>
-      )}
     </>
   );
 };
-
 export default SitesListTab;

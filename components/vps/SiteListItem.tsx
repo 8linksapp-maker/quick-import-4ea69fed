@@ -3,19 +3,23 @@ import { MoreVerticalIcon, TrashIcon, PencilIcon, InfoIcon } from '../Icons';
 
 interface SiteListItemProps {
   site: string;
+  isConnected: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onEdit: () => void;
 }
 
-const SiteListItem: React.FC<SiteListItemProps> = ({ site, onSelect, onDelete, onEdit }) => {
+const SiteListItem: React.FC<SiteListItemProps> = ({ site, isConnected, onSelect, onDelete, onEdit }) => {
   // O menu dropdown foi movido para o SiteCard, mas podemos ter botões diretos aqui
   return (
     <div 
       onClick={onSelect}
       className="flex items-center justify-between p-4 bg-gray-800 rounded-lg mb-3 hover:bg-gray-700/80 transition-colors duration-200 cursor-pointer"
     >
-      <p className="font-semibold text-white flex-grow">{site}</p>
+      <div className="flex items-center gap-3">
+        <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'}`} title={isConnected ? 'Conectado' : 'Apenas Instalado'}></span>
+        <p className="font-semibold text-white">{site}</p>
+      </div>
       <div className="flex items-center gap-2 flex-shrink-0">
          <button 
           onClick={(e) => {e.stopPropagation(); onEdit();}}

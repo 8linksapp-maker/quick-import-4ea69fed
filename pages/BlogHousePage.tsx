@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AddIcon } from '../components/Icons';
 import Modal from '../components/Modal';
 import VpsListTab from '../components/tabs/VpsListTab';
@@ -8,7 +8,8 @@ import VpsControlPanel from '../components/vps/VpsControlPanel';
 import SitesListTab from '../components/tabs/SitesListTab';
 import AddWpSiteForm from '../components/AddWpSiteForm';
 import WpDetails from '../components/WpDetails';
-import { WpData } from '../components/WpCard'; // Assuming WpData is exported from WpCard
+import { WpData } from '../components/WpCard';
+import { supabase } from '../src/supabaseClient';
 
 const BlogHousePage = () => {
   const [activeTab, setActiveTab] = useState<'vps' | 'sites'>('vps');
@@ -17,10 +18,31 @@ const BlogHousePage = () => {
   // Page view state
   const [selectedVps, setSelectedVps] = useState<VpsData | null>(null);
   const [selectedSite, setSelectedSite] = useState<{ domain: string, vps?: VpsData, wpData?: WpData } | null>(null);
+  
+  // Data state
+  const [connectedSites, setConnectedSites] = useState<WpData[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Modal states
   const [isAddVpsModalOpen, setIsAddVpsModalOpen] = useState(false);
   const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
+
+  const fetchConnectedSites = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: wpSitesData, error: wpSitesError } = await supabase.functions.invoke('get-wp-sites');
+      if (wpSitesError) throw wpSitesError;
+      setConnectedSites(wpSitesData.sites || []);
+    } catch (error) {
+      console.error("Failed to fetch connected sites:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConnectedSites();
+  }, [fetchConnectedSites, refetchTrigger]);
 
   const handleContentAdded = () => {
     setIsAddVpsModalOpen(false);
@@ -34,17 +56,12 @@ const BlogHousePage = () => {
   
   // Render Site Details Full Screen
   if (selectedSite) {
-    // Note: WpDetails expects a full WpData object. 
-    // If the site is just 'installed' (from VpsControlPanel), we don't have this.
-    // We pass a placeholder or a partially filled object.
-    // A better approach would be to fetch details on demand.
     const siteDataForDetails: WpData = selectedSite.wpData || {
-        id: 0, // Placeholder ID
+        id: 0,
         site_url: selectedSite.domain,
         wp_username: 'N/A (Site não conectado)',
         created_at: '',
     };
-
     return (
         <div className="pt-24 bg-[#141414] min-h-screen text-white">
             <WpDetails site={siteDataForDetails} onBack={() => setSelectedSite(null)} />
@@ -58,6 +75,7 @@ const BlogHousePage = () => {
       <div className="pt-24 bg-[#141414] min-h-screen text-white">
         <VpsControlPanel 
           vps={selectedVps} 
+          connectedSites={connectedSites}
           onBack={() => setSelectedVps(null)} 
           onVpsDeleted={() => { setSelectedVps(null); setRefetchTrigger(prev => prev + 1); }} 
           onSiteSelect={handleSiteSelect}
@@ -92,7 +110,7 @@ const BlogHousePage = () => {
         </div>
         <div>
           {activeTab === 'vps' && <VpsListTab onVpsSelect={setSelectedVps} refetchTrigger={refetchTrigger} />}
-          {activeTab === 'sites' && <SitesListTab onSiteSelect={handleSiteSelect} refetchTrigger={refetchTrigger} />}
+          {activeTab === 'sites' && <SitesListTab connectedSites={connectedSites} onSiteSelect={handleSiteSelect} refetchTrigger={refetchTrigger} />}
         </div>
       </div>
 

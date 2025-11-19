@@ -3,12 +3,13 @@ import { MoreVerticalIcon, TrashIcon, PencilIcon, InfoIcon } from '../Icons';
 
 interface SiteCardProps {
   site: string;
+  isConnected: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onEdit: () => void;
 }
 
-const SiteCard: React.FC<SiteCardProps> = ({ site, onSelect, onDelete, onEdit }) => {
+const SiteCard: React.FC<SiteCardProps> = ({ site, isConnected, onSelect, onDelete, onEdit }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -36,7 +37,10 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, onSelect, onDelete, onEdit })
       <div className="flex justify-between items-start">
         <div className="flex-grow">
           <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors truncate pr-4">{site}</h3>
-          <p className="text-sm text-gray-400 mt-2">Site WordPress</p>
+          <div className="flex items-center gap-2 text-sm text-gray-400 mt-2">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+            <span>{isConnected ? 'Conectado' : 'Apenas Instalado'}</span>
+          </div>
         </div>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
