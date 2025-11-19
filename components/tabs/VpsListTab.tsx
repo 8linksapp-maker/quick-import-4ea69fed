@@ -21,7 +21,17 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ onVpsSelect, refetchTrigger }) 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const fetchVpsList = useCallback(async () => {
-    // ... fetch logic
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('get-vps-list');
+      if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
+      setVpsList(data || []);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao buscar a lista de VPS.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
