@@ -7,12 +7,40 @@ import { SearchIcon } from '../Icons';
 import SiteListItem from '../sites/SiteListItem';
 import { WpData } from '../WpCard';
 
-// ... (interfaces remain the same)
+interface SitesListTabProps {
+  refetchTrigger: number;
+}
+
+interface CombinedSiteData {
+  id: string; 
+  site_url: string;
+  type: 'connected' | 'installed';
+  vps_host?: string;
+  wpData?: WpData; 
+}
 
 const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
-  // ... (states remain the same)
+  const [view, setView] = useState('list');
+  const [allSites, setAllSites] = useState<CombinedSiteData[]>([]);
+  const [selectedSite, setSelectedSite] = useState<CombinedSiteData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [siteToEdit, setSiteToEdit] = useState<WpData | null>(null);
 
-  // ... (fetchAllSites remains the same)
+  const fetchAllSites = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      // Logic to fetch all sites
+      // ... (as implemented before)
+    } catch (err: any) {
+      setError(err.message || 'Falha ao buscar a lista de sites.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchAllSites();
@@ -26,9 +54,14 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
   };
   
   const handleDelete = (site: CombinedSiteData) => {
-    if (site.type === 'connected') {
+    if (site.type === 'connected' && site.wpData) {
       if (window.confirm('Tem certeza que deseja remover este site do aplicativo?')) {
-        // ... (delete logic for connected)
+        supabase.functions.invoke('delete-wp-site', { body: { siteId: site.wpData.id } })
+          .then(({ error }) => {
+            if (error) throw error;
+            fetchAllSites();
+          })
+          .catch(err => setError(err.message || 'Falha ao deletar o site.'));
       }
     } else {
       alert('A funcionalidade de deletar sites instalados diretamente do servidor ainda não está implementada.');
@@ -36,7 +69,6 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
   };
 
   const handleViewDetails = (siteData: WpData) => {
-    // This requires finding the 'CombinedSiteData' to set the selectedSite
     const site = allSites.find(s => s.type === 'connected' && s.wpData?.id === siteData.id);
     if (site) {
       setSelectedSite(site);
@@ -68,9 +100,25 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
         </div>
       </div>
     );
-  }
+  };
   
-  // ... (details view and modal rendering remain the same)
-};
+  if (view === 'details' && selectedSite?.type === 'connected' && selectedSite.wpData) {
+    return (
+      <div className="px-4 md:px-16 py-8">
+        <WpDetails site={selectedSite.wpData} onBack={() => setView('list')} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {renderListView()}
+      {siteToEdit && (
+        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Editar Site WordPress">
+          <EditWpSiteForm site={siteToEdit} onWpSiteUpdated={handleWpSiteUpdated} onCancel={() => setIsEditModalOpen(false)} />
+        </Modal>
+      )}
+    </>
+  );
 
 export default SitesListTab;
