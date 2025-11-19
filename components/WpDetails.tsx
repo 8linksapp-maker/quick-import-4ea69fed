@@ -4,7 +4,6 @@ import { WpData } from './WpCard';
 import { VpsData } from './VpsCard';
 import { AddIcon, DocumentTextIcon, EyeIcon, TrashIcon, PencilIcon, UsersIcon, LoadingSpinner } from './Icons';
 import Modal from './Modal';
-import WpUsersModal from './vps/modals/WpUsersModal';
 import AddWpUserForm from './vps/modals/AddWpUserForm';
 import EditWpUserForm from './vps/modals/EditWpUserForm';
 import DeleteWpUserModal from './vps/modals/DeleteWpUserModal';
@@ -111,7 +110,6 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
   const [isCreateArticleModalOpen, setIsCreateArticleModalOpen] = useState(false);
 
   // --- User Management State ---
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [wpUsers, setWpUsers] = useState<any[]>([]);
   const [userMgmtView, setUserMgmtView] = useState('user_list');
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
@@ -120,19 +118,10 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
 
   const startUserAction = async ({ action, params, title }) => {
     if (!vps) return;
-    setIsUserModalOpen(false);
+    // setIsUserModalOpen(false); // Não é mais necessário, pois não estamos usando o modal principal
     alert(`Ação de usuário '${title}' iniciada. Acompanhe o status no painel da VPS.`);
-  };
-
-  const renderUserManagementContent = () => {
-    if (isUserLoading) return <div className="text-center p-8"><LoadingSpinner /></div>;
-    switch (userMgmtView) {
-        case 'user_list': return <WpUsersModal users={wpUsers} onClose={() => setIsUserModalOpen(false)} onAdd={() => setUserMgmtView('add_user')} onEdit={(user) => { setUserToEdit(user); setUserMgmtView('edit_user'); }} onDelete={(user) => { setUserToDelete(user); setUserMgmtView('confirm_delete'); }} />;
-        case 'add_user': return <AddWpUserForm domain={site.site_url} onSubmit={(params) => startUserAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.username}` })} onCancel={() => setUserMgmtView('user_list')} />;
-        case 'edit_user': return <EditWpUserForm user={userToEdit} domain={site.site_url} onSubmit={(params) => startUserAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })} onCancel={() => setUserMgmtView('user_list')} />;
-        case 'confirm_delete': return <DeleteWpUserModal user={userToDelete} onConfirm={(user) => startUserAction({ action: 'delete-wp-user', params: { domain: site.site_url, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })} onCancel={() => setUserMgmtView('user_list')} />;
-        default: return null;
-    }
+    setUserMgmtView('user_list'); // Retorna para a lista após a ação
+    fetchSiteData(); // Recarrega os dados para refletir as mudanças
   };
   // --- End of User Management ---
 
@@ -191,8 +180,6 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
             console.log("Users Result:", usersResult);
             if (usersResult.error) throw new Error(`Users Error: ${JSON.stringify(usersResult.error)}`);
             setWpUsers(usersResult.data.users || []);
-        setIsUserModalOpen(true); // Abre o modal de usuários automaticamente
-        setUserMgmtView('user_list'); // Define a visualização como lista de usuários
             console.log("wpUsers state set with:", usersResult.data.users);
         }
 
@@ -246,15 +233,45 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-semibold">Usuários do Site</h3>
                             </div>
-            <div className="bg-gray-800/50 rounded-lg border border-white/10 p-6">
-                {isLoading ? (
-                    <p className="text-gray-400">Carregando usuários...</p>
-                ) : (
-                    <p className="text-gray-400">
-                        <span className="font-bold text-white">{wpUsers.length}</span> usuários encontrados neste site. Clique em "Gerenciar Usuários" para ver a lista completa.
-                    </p>
-                )}
-            </div>
+                        <div className="bg-gray-800/50 rounded-lg border border-white/10 p-6">
+                            {isLoading ? (
+                                <p className="text-gray-400">Carregando usuários...</p>
+                            ) : (
+                                <>
+                                    <div className="mb-4">
+                                        <button onClick={() => setUserMgmtView('add_user')} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+                                            Adicionar Novo Usuário
+                                        </button>
+                                    </div>
+                                    <div className="max-h-96 overflow-y-auto">
+                                        <table className="w-full text-sm text-left text-gray-400">
+                                            <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                                                <tr>
+                                                    <th scope="col" className="px-6 py-3">ID</th>
+                                                    <th scope="col" className="px-6 py-3">Login</th>
+                                                    <th scope="col" className="px-6 py-3">Email</th>
+                                                    <th scope="col" className="px-6 py-3">Role</th>
+                                                    <th scope="col" className="px-6 py-3">Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {wpUsers.map((user) => (
+                                                    <tr key={user.ID} className="bg-gray-800 border-b border-gray-700">
+                                                        <td className="px-6 py-4">{user.ID}</td>
+                                                        <td className="px-6 py-4">{user.user_login}</td>
+                                                        <td className="px-6 py-4">{user.user_email}</td>
+                                                        <td className="px-6 py-4">{user.roles}</td>
+                                                        <td className="px-6 py-4">
+                                                            <button onClick={() => { setUserToEdit(user); setUserMgmtView('edit_user'); }} className="font-medium text-blue-500 hover:underline mr-4">Editar</button>
+                                                            <button onClick={() => { setUserToDelete(user); setUserMgmtView('confirm_delete'); }} className="font-medium text-red-500 hover:underline">Deletar</button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            )}
         </div>
       )}
 
@@ -298,9 +315,24 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
       <Modal isOpen={isCreateArticleModalOpen} onClose={() => setIsCreateArticleModalOpen(false)} title="Criar Novo Artigo com IA">
         <CreateArticleForm site={site} onArticleCreated={handleArticleCreated} onArticleUpdated={handleArticleUpdated} onCancel={() => setIsCreateArticleModalOpen(false)} />
       </Modal>
-      <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title={`Gerenciando Usuários de ${site.site_url}`}>
-          {renderUserManagementContent()}
-      </Modal>
+
+      {userMgmtView === 'add_user' && (
+        <Modal isOpen={true} onClose={() => setUserMgmtView('user_list')} title={`Adicionar Novo Usuário em ${site.site_url}`}>
+          <AddWpUserForm domain={site.site_url} onSubmit={(params) => startUserAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.username}` })} onCancel={() => setUserMgmtView('user_list')} />
+        </Modal>
+      )}
+
+      {userMgmtView === 'edit_user' && userToEdit && (
+        <Modal isOpen={true} onClose={() => setUserMgmtView('user_list')} title={`Editar Usuário ${userToEdit.user_login} em ${site.site_url}`}>
+          <EditWpUserForm user={userToEdit} domain={site.site_url} onSubmit={(params) => startUserAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })} onCancel={() => setUserMgmtView('user_list')} />
+        </Modal>
+      )}
+
+      {userMgmtView === 'confirm_delete' && userToDelete && (
+        <Modal isOpen={true} onClose={() => setUserMgmtView('user_list')} title={`Confirmar Exclusão de Usuário em ${site.site_url}`}>
+          <DeleteWpUserModal user={userToDelete} onConfirm={(user) => startUserAction({ action: 'delete-wp-user', params: { domain: site.site_url, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })} onCancel={() => setUserMgmtView('user_list')} />
+        </Modal>
+      )}
     </div>
   );
 };
