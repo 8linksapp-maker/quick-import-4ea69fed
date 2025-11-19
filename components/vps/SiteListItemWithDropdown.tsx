@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVerticalIcon, UsersIcon, LockIcon, Trash2Icon } from '../Icons';
+import { MoreVerticalIcon, UsersIcon, LockClosedIcon, TrashIcon } from '../Icons';
 
 interface SiteListItemProps {
   site: string;
@@ -60,7 +60,7 @@ const SiteListItem: React.FC<SiteListItemProps> = ({ site, isJobRunning, onManag
                   onClick={(e) => { e.preventDefault(); handleAction(onInstallSsl); }}
                   className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
                 >
-                  <LockIcon className="w-4 h-4 mr-3" />
+                  <LockClosedIcon className="w-4 h-4 mr-3" />
                   Instalar/Reinstalar SSL
                 </a>
               </li>
@@ -71,7 +71,7 @@ const SiteListItem: React.FC<SiteListItemProps> = ({ site, isJobRunning, onManag
                   onClick={(e) => { e.preventDefault(); handleAction(onDeleteSite); }}
                   className="flex items-center px-4 py-2 text-sm text-red-500 hover:bg-red-900/50"
                 >
-                  <Trash2Icon className="w-4 h-4 mr-3" />
+                  <TrashIcon className="w-4 h-4 mr-3" />
                   Deletar Site
                 </a>
               </li>
