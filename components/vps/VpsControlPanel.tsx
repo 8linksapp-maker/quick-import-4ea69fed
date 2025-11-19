@@ -256,9 +256,8 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                         sites={sites}
                         isJobRunning={isJobRunning}
                         onManageUsers={(site) => handleGetUsers({ domain: site })}
-                        onManageSite={(site) => { /* Logic for site management modal */ setSiteToDelete(site) }} // Placeholder, can open a new modal with more options
                         onInstallSsl={(site) => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
-                        onDeleteSite={(site) => setSiteToDelete(site)}
+                        onDeleteSite={setSiteToDelete}
                     />
                 ) : (
                     <div className="max-w-md mx-auto mt-10">
@@ -295,24 +294,21 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
             {/* Action Bar */}
             {woStatus === 'installed' && (
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold text-white mb-2 md:mb-0">Ações Rápidas:</h2>
-                    <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                        <button 
-                            onClick={() => setModalState({ type: 'create-site', isOpen: true, data: null })}
-                            disabled={isJobRunning}
-                            className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105 flex-grow"
-                        >
-                            Instalar Site WordPress
-                        </button>
-                        <button 
-                            onClick={() => setIsDeleteVpsModalOpen(true)}
-                            disabled={isJobRunning}
-                            className="bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105 flex-grow"
-                        >
-                            Deletar VPS
-                        </button>
-                    </div>
+                <div className="flex flex-col md:flex-row items-center justify-end gap-4 mb-8">
+                    <button 
+                        onClick={() => setModalState({ type: 'create-site', isOpen: true, data: null })}
+                        disabled={isJobRunning}
+                        className="bg-green-600 text-white py-2 px-5 rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105"
+                    >
+                        Instalar Site WordPress
+                    </button>
+                    <button 
+                        onClick={() => setIsDeleteVpsModalOpen(true)}
+                        disabled={isJobRunning}
+                        className="bg-red-600 text-white py-2 px-5 rounded-lg hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105"
+                    >
+                        Deletar VPS
+                    </button>
                 </div>
             )}
 
