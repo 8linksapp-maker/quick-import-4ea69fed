@@ -33,8 +33,49 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger }) => {
     setLoading(true);
     setError('');
     try {
-      // Logic to fetch all sites
-      // ... (as implemented before)
+      // 1. Fetch connected WP sites
+      const { data: wpSitesData, error: wpSitesError } = await supabase.functions.invoke('get-wp-sites');
+      if (wpSitesError) throw wpSitesError;
+      
+      const connectedSites: CombinedSiteData[] = (wpSitesData.sites || []).map((site: WpData) => ({
+        id: site.id.toString(),
+        site_url: site.site_url,
+        type: 'connected' as const,
+        wpData: site,
+      }));
+
+      // 2. Fetch all VPSs
+      const { data: vpsList, error: vpsListError } = await supabase.functions.invoke('get-vps-list');
+      if (vpsListError) throw vpsListError;
+
+      // 3. Fetch installed sites for each VPS
+      const installedSitesPromises = (vpsList || []).map(async (vps: { id: number; host: string }) => {
+        const { data: installedSitesData, error: installedSitesError } = await supabase.functions.invoke('get-installed-sites', { body: { vpsId: vps.id } });
+        if (installedSitesError) {
+          console.error(`Failed to get sites for VPS ${vps.host}:`, installedSitesError);
+          return [];
+        }
+        return (installedSitesData.sites || []).map((siteDomain: string) => ({
+          id: `${vps.host}-${siteDomain}`,
+          site_url: siteDomain,
+          type: 'installed' as const,
+          vps_host: vps.host,
+        }));
+      });
+
+      const installedSitesArrays = await Promise.all(installedSitesPromises);
+      const installedSites = installedSitesArrays.flat();
+
+      // 4. Combine and deduplicate
+      const combined = [...connectedSites];
+      installedSites.forEach(installedSite => {
+        if (!combined.some(s => s.site_url === installedSite.site_url)) {
+          combined.push(installedSite);
+        }
+      });
+      
+      setAllSites(combined);
+
     } catch (err: any) {
       setError(err.message || 'Falha ao buscar a lista de sites.');
     } finally {
