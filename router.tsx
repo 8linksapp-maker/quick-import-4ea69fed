@@ -58,10 +58,6 @@ const router = createBrowserRouter([
                 element: <ManageVpsPage />,
             },
             {
-                path: 'vps/:vpsId',
-                element: <VpsDetailsPage />,
-            },
-            {
                 path: 'manage-wordpress',
                 element: <ManageWordPressPage />,
             },

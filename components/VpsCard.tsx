@@ -17,6 +17,16 @@ interface VpsCardProps {
 }
 
 const VpsCard: React.FC<VpsCardProps> = ({ vps, onEdit, onDelete }) => {
+  const formatDate = (isoString: string) => {
+    if (!isoString) return 'Data desconhecida';
+    const date = new Date(isoString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+  const formattedDate = formatDate(vps.created_at);
+
   return (
     <div 
       className="bg-gray-800 border border-gray-700 rounded-lg p-6 group transition-colors flex flex-col justify-between h-full"
@@ -28,6 +38,7 @@ const VpsCard: React.FC<VpsCardProps> = ({ vps, onEdit, onDelete }) => {
         </div>
         <p className="text-sm text-gray-400">Usuário: {vps.username}</p>
         <p className="text-sm text-gray-400">Porta: {vps.port}</p>
+        <p className="text-xs text-gray-500 mt-2">Criado em: {formattedDate}</p>
       </div>
       <div className="flex justify-end gap-2 mt-4">
         <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="text-blue-400 hover:text-blue-600 p-1 rounded-full hover:bg-gray-700 transition-colors"><PencilIcon className="w-5 h-5" /></button>

@@ -297,6 +297,8 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [userToDelete, setUserToDelete] = useState<any | null>(null);
     const [userToEdit, setUserToEdit] = useState<any | null>(null);
 
+    const [errorModalContent, setErrorModalContent] = useState<{ title: string; message: string; details?: string } | null>(null);
+
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
         try {
@@ -400,7 +402,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const startAction = async ({ action, params, title }) => {
         setModalState({ type: '', isOpen: false });
         setUserMgmtView('select_site');
-        // setActiveJob({ action, title, status: 'running' }); // Remover esta linha para depuração
+        setActiveJob({ action, title, status: 'running' });
 
         try {
             const { data, error } = await supabase.functions.invoke('start-long-action', {
@@ -408,19 +410,11 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
             });
 
             if (error || data.error) throw error || new Error(data.error);
-            
-            // AGORA, data contém stdout, stderr, exitCode, status
-            alert(`Comando ${action} concluído.\n\nSTDOUT:\n${data.stdout}\n\nSTDERR:\n${data.stderr}\n\nExit Code: ${data.exitCode}`);
 
-            // Se for um comando que modifica usuários, recarrega a lista
-            if (action.includes('wp-user')) {
-                // handleGetUsers({ domain: currentUserDomain }); // Desabilitado para depuração
-                setModalState({ type: '', isOpen: false });
-            }
+            setActiveJob(prev => prev ? { ...prev, logFileName: data.logFileName, pidFileName: data.pidFileName } : null);
 
         } catch (err: any) {
-            alert(`Erro ao executar ${action}: ${err.message}`);
-            // setActiveJob({ action, title, status: 'failed', error: err.message }); // Remover esta linha para depuração
+            setActiveJob({ action, title, status: 'failed', error: err.message });
         }
     };
 

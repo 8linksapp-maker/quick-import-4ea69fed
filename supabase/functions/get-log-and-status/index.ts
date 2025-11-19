@@ -61,8 +61,6 @@ serve(async (req) => {
 
     const responseData = await response.json();
     const output = responseData.stdout.trim();
-    console.log(`Raw SSH output for ${logFileName}:\n${output}`); // Adicionado para depuração
-
     const separator = '---STATUS-SEPARATOR---';
     const separatorIndex = output.lastIndexOf(separator);
 

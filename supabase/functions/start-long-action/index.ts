@@ -65,7 +65,7 @@ serve(async (req) => {
     const command = getCommand(action, params);
     const logFileName = `wo-action-${Date.now()}.log`;
     const pidFileName = `${logFileName}.pid`;
-    const commandToExecute = `bash -c 'set -x; ${command}'`;
+    const commandToExecute = `nohup bash -c 'set -x; ${command}' > /tmp/${logFileName} 2>&1 & echo $! > /tmp/${pidFileName}`;
 
     const sshResponse = await fetch(`${sshServiceUrl}/execute`, {
       method: 'POST',
@@ -76,7 +76,7 @@ serve(async (req) => {
         username: credentials.username,
         password: credentials.encrypted_password,
         command: commandToExecute,
-        wait_for_output: true
+        wait_for_output: false
       }),
     });
 
@@ -85,13 +85,12 @@ serve(async (req) => {
         throw new Error(`SSH service responded with an error: ${sshResponse.status} - ${errorBody}`);
     }
 
-    const sshData = await sshResponse.json();
+    // Don't need to await sshResponse.json() as we are not waiting for output
 
     return new Response(JSON.stringify({
-        stdout: sshData.stdout,
-        stderr: sshData.stderr,
-        exitCode: sshData.exitCode,
-        status: 'finished'
+        logFileName: logFileName,
+        pidFileName: pidFileName,
+        status: 'started'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
