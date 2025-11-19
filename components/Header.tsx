@@ -60,8 +60,7 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
                             <Link to="/admin" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Admin</Link>
                         )}
                         <Link to="/account-settings" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Conta</Link>
-                        <Link to="/manage-wordpress" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Gerenciar WordPress</Link>
-                        <Link to="/manage-vps" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Gerenciar VPS</Link>
+                        <Link to="/blog-house" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Blog House</Link>
                         <a href="#" className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Central de Ajuda</a>
                         <hr className="border-gray-700 my-2" />
                         <button onClick={handleLogout} className="w-full text-left block px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Sair</button>
@@ -109,11 +108,8 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
                         <Link to="/my-courses" className={`${linkClasses} ${location.pathname === '/my-courses' ? activeLinkClasses : inactiveLinkClasses}`}>
                             Meus Cursos
                         </Link>
-                        <Link to="/manage-vps" className={`${linkClasses} ${location.pathname === '/manage-vps' ? activeLinkClasses : inactiveLinkClasses}`}>
-                            Gerenciar VPS
-                        </Link>
-                        <Link to="/manage-wordpress" className={`${linkClasses} ${location.pathname === '/manage-wordpress' ? activeLinkClasses : inactiveLinkClasses}`}>
-                            Gerenciar WordPress
+                        <Link to="/blog-house" className={`${linkClasses} ${location.pathname === '/blog-house' ? activeLinkClasses : inactiveLinkClasses}`}>
+                            Blog House
                         </Link>
                     </nav>
                 </div>
