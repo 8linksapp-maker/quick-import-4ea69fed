@@ -16,10 +16,24 @@ interface VpsListTabProps {
 const VpsListTab: React.FC<VpsListTabProps> = ({ isAddModalOpen, setIsAddModalOpen, onVpsAdded, refetchTrigger }) => {
   const [selectedVps, setSelectedVps] = useState<VpsData | null>(null);
   const [vpsList, setVpsList] = useState<VpsData[]>([]);
-  // ... (rest of the states)
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [vpsToEdit, setVpsToEdit] = useState<VpsData | null>(null);
 
   const fetchVpsList = useCallback(async () => {
-    // ... (fetch logic)
+    setLoading(true);
+    setError('');
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('get-vps-list');
+      if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
+      setVpsList(data || []);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao buscar a lista de VPS.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
