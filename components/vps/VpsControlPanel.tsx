@@ -125,32 +125,32 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                     {filteredSites.length > 0 ? (
                         viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").replace(/\/$/, "");
+
+// ...
+
                                 {filteredSites.map(site => {
-                                    const isConnected = connectedSites.some(cs => cs.site_url === site);
+                                    const normalizedSite = normalizeUrl(site);
+                                    const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizedSite);
                                     return (
                                         <SiteCard 
                                             key={site} 
                                             site={site} 
                                             isConnected={isConnected}
-                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => cs.site_url === site))}
-                                            onDelete={() => setSiteToDelete(site)}
-                                            onEdit={() => handleEditSite(site)}
+                                            // ...
                                         />
                                     );
                                 })}
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
+// ...
                                 {filteredSites.map(site => {
-                                    const isConnected = connectedSites.some(cs => cs.site_url === site);
+                                    const normalizedSite = normalizeUrl(site);
+                                    const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizedSite);
                                     return (
                                         <SiteListItem
                                             key={site}
                                             site={site}
                                             isConnected={isConnected}
-                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => cs.site_url === site))}
-                                            onDelete={() => setSiteToDelete(site)}
-                                            onEdit={() => handleEditSite(site)}
+                                            // ...
                                         />
                                     );
                                 })}
