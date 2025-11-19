@@ -244,35 +244,33 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     };
 
     const renderMainContent = () => {
-        if (woStatus === 'checking' || sitesLoading) return <div className="text-center"><LoadingSpinner /> <p className="mt-4">Verificando servidor...</p></div>;
+        if (woStatus === 'checking' || sitesLoading) return <div className="text-center p-8"><LoadingSpinner /> <p className="mt-4">Verificando servidor...</p></div>;
         if (error) return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
         
         const isJobRunning = activeJob?.status === 'running';
 
-        if (woStatus === 'installed') {
-            return (
-                <SiteList 
-                    sites={sites}
-                    isJobRunning={isJobRunning}
-                    onManageUsers={(site) => handleGetUsers({ domain: site })}
-                    onManageSite={(site) => { /* Logic for site management modal */ setSiteToDelete(site) }} // Placeholder, can open a new modal with more options
-                    onInstallSsl={(site) => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
-                    onDeleteSite={(site) => setSiteToDelete(site)}
-                />
-            );
-        }
-        if (woStatus === 'not-installed') {
-            return (
-              <div className="max-w-md mx-auto mt-10">
-                  <ActionCard 
-                    title="Instalar WordOps" 
-                    onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} 
-                    loading={isJobRunning} 
-                />
-              </div>
-            );
-        }
-        return null;
+        return (
+            <div className="mb-8 p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
+                {woStatus === 'installed' ? (
+                    <SiteList 
+                        sites={sites}
+                        isJobRunning={isJobRunning}
+                        onManageUsers={(site) => handleGetUsers({ domain: site })}
+                        onManageSite={(site) => { /* Logic for site management modal */ setSiteToDelete(site) }} // Placeholder, can open a new modal with more options
+                        onInstallSsl={(site) => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
+                        onDeleteSite={(site) => setSiteToDelete(site)}
+                    />
+                ) : (
+                    <div className="max-w-md mx-auto mt-10">
+                        <ActionCard 
+                            title="Instalar WordOps" 
+                            onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} 
+                            loading={isJobRunning} 
+                        />
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const isJobRunning = activeJob?.status === 'running';
@@ -280,44 +278,51 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     return (
         <div className="px-4 md:px-16 py-8 animate-fade-in">
             {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-                <button onClick={onBack} className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300">
+            <div className="bg-gray-900 p-6 rounded-lg shadow-lg mb-6">
+                <button onClick={onBack} className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-4">
                     <ArrowLeftIcon className="w-5 h-5" />
-                    Voltar
+                    Voltar para a lista de VPS
                 </button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tighter text-right">{vps.host}</h1>
-                    <div className="flex items-center justify-end gap-2 text-sm text-gray-400">
-                        {woStatus === 'installed' && <CheckCircleIcon className="text-green-500" />}
-                        {woStatus === 'not-installed' && <XCircleIcon className="text-red-500" />}
-                        <span>{woStatus === 'installed' ? 'WordOps Instalado' : (woStatus === 'not-installed' ? 'WordOps Não Instalado' : 'Verificando...')}</span>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <h1 className="text-3xl font-bold tracking-tighter text-white mb-2 md:mb-0">{vps.host}</h1>
+                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                        {woStatus === 'installed' && <CheckCircleIcon className="text-green-500 w-5 h-5" />}
+                        {woStatus === 'not-installed' && <XCircleIcon className="text-red-500 w-5 h-5" />}
+                        <span>{woStatus === 'installed' ? 'WordOps Instalado' : (woStatus === 'not-installed' ? 'WordOps Não Instalado' : 'Verificando status do WordOps...')}</span>
                     </div>
                 </div>
             </div>
 
             {/* Action Bar */}
             {woStatus === 'installed' && (
-                <div className="flex items-center gap-4 mb-8 p-4 bg-gray-800 border border-gray-700 rounded-lg">
-                    <button 
-                        onClick={() => setModalState({ type: 'create-site', isOpen: true, data: null })}
-                        disabled={isJobRunning}
-                        className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500 flex-grow md:flex-grow-0"
-                    >
-                        Instalar Site WordPress
-                    </button>
-                    <div className="flex-grow"></div>
-                    <button 
-                        onClick={() => setIsDeleteVpsModalOpen(true)}
-                        disabled={isJobRunning}
-                        className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:bg-gray-500"
-                    >
-                        Deletar VPS
-                    </button>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-white mb-2 md:mb-0">Ações Rápidas:</h2>
+                    <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                        <button 
+                            onClick={() => setModalState({ type: 'create-site', isOpen: true, data: null })}
+                            disabled={isJobRunning}
+                            className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105 flex-grow"
+                        >
+                            Instalar Site WordPress
+                        </button>
+                        <button 
+                            onClick={() => setIsDeleteVpsModalOpen(true)}
+                            disabled={isJobRunning}
+                            className="bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105 flex-grow"
+                        >
+                            Deletar VPS
+                        </button>
+                    </div>
                 </div>
             )}
 
             {/* Job Status */}
-            {activeJob && <div className="mb-8"><JobStatus {...activeJob} /></div>}
+            {activeJob && (
+                <div className="mb-8 p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-white mb-4">Status da Tarefa</h2>
+                    <JobStatus {...activeJob} />
+                </div>
+            )}
 
             {/* Main Content */}
             {renderMainContent()}
