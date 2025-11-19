@@ -78,7 +78,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     }, [vps.id, fetchSites]);
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
-
+    
     const stopPolling = () => {
         if (pollingRef.current) {
             clearInterval(pollingRef.current);
@@ -126,6 +126,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
         }
     }, [vps.id, handleJobCompletion]);
 
+
     useEffect(() => {
         if (activeJob?.status === 'running' && activeJob.logFileName && activeJob.pidFileName && !pollingRef.current) {
             pollingRef.current = setInterval(() => pollJobStatus(activeJob), 3000);
@@ -165,13 +166,13 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
 
     const handleDeleteVps = async () => {
         try {
-            const { data, error: invokeError } = await supabase.functions.invoke('delete-vps-credentials', { body: { id: vps.id } });
-            if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
-            onVpsDeleted();
+          const { data, error: invokeError } = await supabase.functions.invoke('delete-vps-credentials', { body: { id: vps.id } });
+          if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
+          onVpsDeleted();
         } catch (err: any) {
-            alert(`Falha ao deletar o VPS: ${err.message}`);
+          alert(`Falha ao deletar o VPS: ${err.message}`);
         }
-    };
+      };
 
     const handleWpSiteUpdated = () => {
         setIsEditModalOpen(false);
@@ -189,11 +190,93 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     };
 
     const renderUserManagementContent = () => {
-        // ... user management JSX
+        switch (userMgmtView) {
+            case 'loading': return <div className="text-center p-8"><LoadingSpinner /></div>;
+            case 'user_list': return <WpUsersModal users={wpUsers} onClose={() => setModalState({ type: '', isOpen: false, data: null })} onAdd={() => setUserMgmtView('add_user')} onEdit={(user) => { setUserToEdit(user); setUserMgmtView('edit_user'); }} onDelete={(user) => { setUserToDelete(user); setUserMgmtView('confirm_delete'); }} />;
+            case 'add_user': return <AddWpUserForm domain={currentUserDomain} onSubmit={(params) => startAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.username}` })} onCancel={() => setUserMgmtView('user_list')} />;
+            case 'edit_user': return <EditWpUserForm user={userToEdit} domain={currentUserDomain} onSubmit={(params) => startAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })} onCancel={() => setUserMgmtView('user_list')} />;
+            case 'confirm_delete': return <DeleteWpUserModal user={userToDelete} onConfirm={(user) => startAction({ action: 'delete-wp-user', params: { domain: currentUserDomain, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })} onCancel={() => setUserMgmtView('user_list')} />;
+            default: return null;
+        }
     };
 
     const renderMainContent = () => {
-        // ... main content JSX with view mode logic
+        if (woStatus === 'checking' || sitesLoading) return <div className="text-center p-8"><LoadingSpinner /> <p className="mt-4">Verificando servidor...</p></div>;
+        if (error) return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
+        
+        if (woStatus === 'installed') {
+            const filteredSites = sites.filter(site => site.toLowerCase().includes(siteSearchTerm.toLowerCase()));
+            return (
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold tracking-tighter text-white">Sites Instalados</h2>
+                        <div className="flex items-center">
+                            <div className="relative mr-4">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon className="w-5 h-5 text-gray-400" /></div>
+                                <input type="text" placeholder="Procurar site..." className="w-full sm:w-64 bg-gray-700 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" value={siteSearchTerm} onChange={(e) => setSiteSearchTerm(e.target.value)} />
+                            </div>
+                            <div className="flex items-center">
+                                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-l-md ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}><GridIcon className="w-5 h-5" /></button>
+                                <button onClick={() => setViewMode('list')} className={`p-2 rounded-r-md ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}><ListIcon className="w-5 h-5" /></button>
+                            </div>
+                        </div>
+                    </div>
+                    {filteredSites.length > 0 ? (
+                        viewMode === 'grid' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {filteredSites.map(site => {
+                                    const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizeUrl(site));
+                                    return (
+                                        <SiteCard 
+                                            key={site} 
+                                            site={site} 
+                                            isConnected={isConnected}
+                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizeUrl(site)))}
+                                            onDelete={() => setSiteToDelete(site)}
+                                            onEdit={() => handleEditSite(site)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {filteredSites.map(site => {
+                                    const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizeUrl(site));
+                                    return (
+                                        <SiteListItem
+                                            key={site}
+                                            site={site}
+                                            isConnected={isConnected}
+                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizeUrl(site)))}
+                                            onDelete={() => setSiteToDelete(site)}
+                                            onEdit={() => handleEditSite(site)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )
+                    ) : (
+                        <div className="text-center py-10 px-4 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg">
+                            <p className="text-gray-400">Nenhum site WordPress instalado nesta VPS.</p>
+                            <p className="text-sm text-gray-500 mt-2">Use o botão "Instalar Site WordPress" para começar.</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        if (woStatus === 'not-installed') {
+            const isJobRunning = activeJob?.status === 'running';
+            return (
+                <div className="max-w-md mx-auto mt-10">
+                    <ActionCard 
+                        title="Instalar WordOps" 
+                        onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} 
+                        loading={isJobRunning} 
+                    />
+                </div>
+            );
+        }
+        return null;
     };
 
     return (
