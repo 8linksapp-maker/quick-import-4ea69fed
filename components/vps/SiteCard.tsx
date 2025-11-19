@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVerticalIcon, TrashIcon, PencilIcon, InfoIcon, LockClosedIcon as LockIcon } from '../Icons';
+import { MoreVerticalIcon, TrashIcon, PencilIcon, InfoIcon, LockClosedIcon as LockIcon, ArrowTopRightOnSquareIcon } from '../Icons';
 
 interface SiteCardProps {
   site: string;
@@ -36,8 +36,13 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, isConnected, onSelect, onDele
       className="bg-gray-800 border border-gray-700 rounded-lg p-6 group transition-all duration-300 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer flex flex-col justify-between h-full"
     >
       <div className="flex justify-between items-start">
-        <div className="flex-grow">
-          <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors truncate pr-4">{site}</h3>
+        <div className="flex-grow min-w-0"> {/* Allow shrinking */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors truncate">{site}</h3>
+            <a href={`https://${site}/wp-admin`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-gray-400 hover:text-white">
+                <ArrowTopRightOnSquareIcon className="w-5 h-5" />
+            </a>
+          </div>
           <div className="flex items-center gap-2 text-sm mt-2">
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
             <span className={`${isConnected ? 'text-gray-400' : 'text-yellow-400'}`}>{isConnected ? 'Conectado' : 'Configurar Site'}</span>
@@ -65,11 +70,6 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, isConnected, onSelect, onDele
             </div>
           )}
         </div>
-      </div>
-      <div className="flex justify-end mt-4">
-        <a href={`https://${site}/wp-admin`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-sm text-gray-300 hover:text-white hover:underline">
-          Painel WP &rarr;
-        </a>
       </div>
     </div>
   );
