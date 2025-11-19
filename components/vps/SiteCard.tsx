@@ -11,7 +11,48 @@ interface SiteCardProps {
 }
 
 const SiteCard: React.FC<SiteCardProps> = ({ site, isConnected, onSelect, onDelete, onEdit, onInstallSsl }) => {
-// ...
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAction = (action: () => void, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    action();
+  };
+
+  return (
+    <div 
+      onClick={onSelect}
+      className="bg-gray-800 border border-gray-700 rounded-lg p-6 group transition-all duration-300 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer flex flex-col justify-between h-full"
+    >
+      <div className="flex justify-between items-start">
+        <div className="flex-grow">
+          <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors truncate pr-4">{site}</h3>
+          <div className="flex items-center gap-2 text-sm mt-2">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
+            <span className={`${isConnected ? 'text-gray-400' : 'text-yellow-400'}`}>{isConnected ? 'Conectado' : 'Configurar Site'}</span>
+          </div>
+        </div>
+        <div className="relative flex-shrink-0" ref={menuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
+          >
+            <MoreVerticalIcon className="w-5 h-5 text-gray-400" />
+          </button>
           {isMenuOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-700 rounded-md shadow-lg z-10">
               <ul className="py-1">
@@ -23,7 +64,15 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, isConnected, onSelect, onDele
               </ul>
             </div>
           )}
-// ...
+        </div>
+      </div>
+      <div className="flex justify-end mt-4">
+        <a href={`https://${site}/wp-admin`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-sm text-gray-300 hover:text-white hover:underline">
+          Painel WP &rarr;
+        </a>
+      </div>
+    </div>
+  );
 };
 
 export default SiteCard;
