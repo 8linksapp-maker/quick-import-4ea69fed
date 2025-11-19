@@ -47,11 +47,34 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
 
 
     const fetchSites = useCallback(async () => {
-        // ... fetch sites logic
+        setSitesLoading(true);
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke('get-installed-sites', { body: { vpsId: vps.id } });
+            if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
+            setSites(data.sites || []);
+        } catch (err: any) {
+            setError(`Falha ao buscar sites: ${err.message}`);
+        } finally {
+            setSitesLoading(false);
+        }
     }, [vps.id]);
 
     const checkWoStatus = useCallback(async () => {
-        // ... check WO status logic
+        setWoStatus('checking');
+        setError(null);
+        try {
+          const { data, error: invokeError } = await supabase.functions.invoke('check-wordops-installed', { body: { vpsId: vps.id } });
+          if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
+          if (data.installed) {
+            setWoStatus('installed');
+            fetchSites();
+          } else {
+            setWoStatus('not-installed');
+          }
+        } catch (err: any) {
+          setError(err.message);
+          setWoStatus('not-installed');
+        }
     }, [vps.id, fetchSites]);
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
