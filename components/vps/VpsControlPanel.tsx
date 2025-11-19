@@ -225,17 +225,20 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                         viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {filteredSites.map(site => {
-                                    const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizeUrl(site));
+                                    const normalizedSite = normalizeUrl(site);
+                                    const wpData = connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSite);
+                                    const isConnected = !!wpData;
+                                    console.log('Checking site:', site, 'Normalized:', normalizedSite, 'Found WpData:', wpData, 'Connected Sites:', connectedSites);
                                     return (
-<SiteCard 
-    key={site} 
-    site={site} 
-    isConnected={isConnected}
-    onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSite))}
-    onDelete={() => setSiteToDelete(site)}
-    onEdit={() => handleEditSite(site)}
-    onInstallSsl={() => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
-/>
+                                        <SiteCard 
+                                            key={site} 
+                                            site={site} 
+                                            isConnected={isConnected}
+                                            onSelect={() => onSiteSelect(site, vps, wpData)}
+                                            onDelete={() => setSiteToDelete(site)}
+                                            onEdit={() => handleEditSite(site)}
+                                            onInstallSsl={() => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
+                                        />
                                     );
                                 })}
                             </div>
