@@ -229,7 +229,7 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
       </div>
 
       {vps && (
-        <div>
+        <>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-semibold">Usuários do Site</h3>
                             </div>
@@ -272,7 +272,8 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
                                     </div>
                                 </>
                             )}
-        </div>
+                        </div>
+        </>
       )}
 
       <div>
