@@ -64,7 +64,11 @@ const BlogHousePage = () => {
     };
     return (
         <div className="pt-24 bg-[#141414] min-h-screen text-white px-4 md:px-16 py-8">
-            <WpDetails site={siteDataForDetails} onBack={() => setSelectedSite(null)} />
+            <WpDetails 
+                site={siteDataForDetails} 
+                vps={selectedSite.vps} // Pass the vps data
+                onBack={() => setSelectedSite(null)} 
+            />
         </div>
     );
   }
