@@ -166,30 +166,36 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
       setIsLoading(true);
       setError('');
       
+      console.log("WpDetails received props:", { site, vps });
+
       const promises = [
           supabase.functions.invoke('get-wp-site-overview', { body: { siteId: site.id } }),
           supabase.functions.invoke('get-wp-site-articles', { body: { siteId: site.id } })
       ];
 
       if (vps) {
+          console.log("Preparing to fetch users with:", { vpsId: vps.id, domain: site.site_url });
           promises.push(supabase.functions.invoke('get-wp-users', { body: { vpsId: vps.id, domain: site.site_url }}));
       }
 
       try {
         const [overviewResult, articlesResult, usersResult] = await Promise.all(promises);
 
-        if (overviewResult.error) throw overviewResult.error;
+        if (overviewResult.error) throw new Error(`Overview Error: ${JSON.stringify(overviewResult.error)}`);
         setOverviewData(overviewResult.data);
 
-        if (articlesResult.error) throw articlesResult.error;
+        if (articlesResult.error) throw new Error(`Articles Error: ${JSON.stringify(articlesResult.error)}`);
         setArticles(articlesResult.data || []);
 
         if (vps && usersResult) {
-            if (usersResult.error) throw usersResult.error;
+            console.log("Users Result:", usersResult);
+            if (usersResult.error) throw new Error(`Users Error: ${JSON.stringify(usersResult.error)}`);
             setWpUsers(usersResult.data.users || []);
+            console.log("wpUsers state set with:", usersResult.data.users);
         }
 
       } catch (err: any) {
+        console.error("Error fetching site data:", err);
         setError(err.message || 'Falha ao buscar dados do site.');
       } finally {
         setIsLoading(false);
