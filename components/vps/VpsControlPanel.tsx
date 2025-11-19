@@ -2,15 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../src/supabaseClient';
 import { VpsData } from '../VpsCard';
 import Modal from '../Modal';
-import { 
-    ArrowLeftIcon, 
-    CheckCircleIcon, 
+import {
+    ArrowLeftIcon,
+    CheckCircleIcon,
     XCircleIcon,
     LoadingSpinner,
+    SearchIcon,
 } from '../Icons';
 import JobStatus from './JobStatus';
 import ActionCard from './ActionCard';
-import { SiteList } from './SiteList';
+import SiteCard from './SiteCard'; // Add this import
 import CreateSiteForm from './modals/CreateSiteForm';
 import WpUsersModal from './modals/WpUsersModal';
 import AddWpUserForm from './modals/AddWpUserForm';
@@ -19,7 +20,7 @@ import DeleteWpUserModal from './modals/DeleteWpUserModal';
 import DeleteSiteModal from './modals/DeleteSiteModal';
 import DeleteVpsModal from './modals/DeleteVpsModal'; // Assuming you have this modal
 
-const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
+const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [sites, setSites] = useState<string[]>([]);
     const [sitesLoading, setSitesLoading] = useState(false);
@@ -34,9 +35,9 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [currentUserDomain, setCurrentUserDomain] = useState<string | null>(null);
     const [userToDelete, setUserToDelete] = useState<any | null>(null);
     const [userToEdit, setUserToEdit] = useState<any | null>(null);
+    const [siteSearchTerm, setSiteSearchTerm] = useState('');
     const [siteToDelete, setSiteToDelete] = useState<string | null>(null);
     const [isDeleteVpsModalOpen, setIsDeleteVpsModalOpen] = useState(false);
-
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -247,29 +248,46 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         if (woStatus === 'checking' || sitesLoading) return <div className="text-center p-8"><LoadingSpinner /> <p className="mt-4">Verificando servidor...</p></div>;
         if (error) return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
         
-        const isJobRunning = activeJob?.status === 'running';
-
-        return (
-            <div className="mb-8 p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-md">
-                {woStatus === 'installed' ? (
-                    <SiteList 
-                        sites={sites}
-                        isJobRunning={isJobRunning}
-                        onManageUsers={(site) => handleGetUsers({ domain: site })}
-                        onInstallSsl={(site) => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
-                        onDeleteSite={setSiteToDelete}
-                    />
-                ) : (
-                    <div className="max-w-md mx-auto mt-10">
-                        <ActionCard 
-                            title="Instalar WordOps" 
-                            onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} 
-                            loading={isJobRunning} 
-                        />
+        if (woStatus === 'installed') {
+            const filteredSites = sites.filter(site => site.toLowerCase().includes(siteSearchTerm.toLowerCase()));
+            return (
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold tracking-tighter text-white">Sites Instalados</h2>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
+                            <input type="text" placeholder="Procurar site..." className="w-full sm:w-64 bg-gray-700 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" value={siteSearchTerm} onChange={(e) => setSiteSearchTerm(e.target.value)} />
+                        </div>
                     </div>
-                )}
-            </div>
-        );
+                    {filteredSites.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {filteredSites.map(site => (
+                                <SiteCard key={site} site={site} onSelect={() => onSiteSelect(site, vps)} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 px-4 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg">
+                            <p className="text-gray-400">Nenhum site WordPress instalado nesta VPS.</p>
+                            <p className="text-sm text-gray-500 mt-2">Use o botão "Instalar Site WordPress" para começar.</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        if (woStatus === 'not-installed') {
+            const isJobRunning = activeJob?.status === 'running';
+            return (
+              <div className="max-w-md mx-auto mt-10">
+                  <ActionCard 
+                    title="Instalar WordOps" 
+                    onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} 
+                    loading={isJobRunning} 
+                />
+              </div>
+            );
+        }
+        return null;
     };
 
     const isJobRunning = activeJob?.status === 'running';
