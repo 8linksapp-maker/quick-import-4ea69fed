@@ -18,12 +18,11 @@ import SiteListItem from './SiteListItem';
 import CreateSiteForm from './modals/CreateSiteForm';
 import WpUsersModal from './modals/WpUsersModal';
 import AddWpUserForm from './modals/AddWpUserForm';
-import EditWpUserForm from '../EditWpSiteForm';
+import EditWpSiteForm from '../EditWpSiteForm';
 import DeleteWpUserModal from './modals/DeleteWpUserModal';
 import DeleteSiteModal from './modals/DeleteSiteModal';
 import DeleteVpsModal from './modals/DeleteVpsModal';
 import { WpData } from '../WpCard';
-
 
 const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSites = [] }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
@@ -45,6 +44,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [siteToEdit, setSiteToEdit] = useState<WpData | null>(null);
 
+    const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").replace(/\/$/, "");
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -78,15 +78,14 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     }, [vps.id, fetchSites]);
     
     useEffect(() => { checkWoStatus(); }, [checkWoStatus]);
-
+    
     const handleWpSiteUpdated = () => {
         setIsEditModalOpen(false);
-        // Idealmente, isso deveria acionar um refetch dos connectedSites na BlogHousePage
-        // onContentUpdated(); // Supondo que uma prop assim seja passada
     };
 
     const handleEditSite = (siteDomain: string) => {
-        const connectedSiteData = connectedSites.find(cs => cs.site_url === siteDomain);
+        const normalizedSiteDomain = normalizeUrl(siteDomain);
+        const connectedSiteData = connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSiteDomain);
         if (connectedSiteData) {
             setSiteToEdit(connectedSiteData);
             setIsEditModalOpen(true);
@@ -95,7 +94,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
         }
     };
     
-    // ... all other handlers and logic ...
+    // ... all other handlers ...
 
     const renderMainContent = () => {
         if (woStatus === 'checking' || sitesLoading) return <div className="text-center p-8"><LoadingSpinner /> <p className="mt-4">Verificando servidor...</p></div>;
@@ -113,22 +112,14 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                                 <input type="text" placeholder="Procurar site..." className="w-full sm:w-64 bg-gray-700 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" value={siteSearchTerm} onChange={(e) => setSiteSearchTerm(e.target.value)} />
                             </div>
                             <div className="flex items-center">
-                                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-l-md ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>
-                                    <GridIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => setViewMode('list')} className={`p-2 rounded-r-md ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>
-                                    <ListIcon className="w-5 h-5" />
-                                </button>
+                                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-l-md ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}><GridIcon className="w-5 h-5" /></button>
+                                <button onClick={() => setViewMode('list')} className={`p-2 rounded-r-md ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}><ListIcon className="w-5 h-5" /></button>
                             </div>
                         </div>
                     </div>
                     {filteredSites.length > 0 ? (
                         viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").replace(/\/$/, "");
-
-// ...
-
                                 {filteredSites.map(site => {
                                     const normalizedSite = normalizeUrl(site);
                                     const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizedSite);
@@ -137,11 +128,15 @@ const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i
                                             key={site} 
                                             site={site} 
                                             isConnected={isConnected}
-                                            // ...
+                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSite))}
+                                            onDelete={() => setSiteToDelete(site)}
+                                            onEdit={() => handleEditSite(site)}
                                         />
                                     );
                                 })}
-// ...
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
                                 {filteredSites.map(site => {
                                     const normalizedSite = normalizeUrl(site);
                                     const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizedSite);
@@ -150,7 +145,9 @@ const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i
                                             key={site}
                                             site={site}
                                             isConnected={isConnected}
-                                            // ...
+                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSite))}
+                                            onDelete={() => setSiteToDelete(site)}
+                                            onEdit={() => handleEditSite(site)}
                                         />
                                     );
                                 })}
@@ -165,19 +162,17 @@ const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i
                 </div>
             );
         }
-        return null; // Simplified, add other statuses if needed
+        return null;
     };
 
     return (
         <div className="px-4 md:px-16 py-8 animate-fade-in">
             {/* Header, Action Bar, Job Status */}
-            {/* ... */}
-            
-            {/* Main Content */}
+            {/* ... other JSX */}
             {renderMainContent()}
-
+            
             {/* Modals */}
-            {/* ... */}
+            {/* ... other modals */}
             {siteToEdit && (
                 <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Editar Site WordPress">
                     <EditWpSiteForm site={siteToEdit} onWpSiteUpdated={handleWpSiteUpdated} onCancel={() => setIsEditModalOpen(false)} />
