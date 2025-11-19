@@ -123,29 +123,6 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
     setIsUserModalOpen(false);
     alert(`Ação de usuário '${title}' iniciada. Acompanhe o status no painel da VPS.`);
   };
-  
-  const handleGetUsers = useCallback(async () => {
-    if (!vps) {
-      setError("A VPS associada a este site não foi encontrada, não é possível gerenciar usuários.");
-      return;
-    }
-    setIsUserLoading(true);
-    try {
-        const { data, error: invokeError } = await supabase.functions.invoke('get-wp-users', { body: { vpsId: vps.id, domain: site.site_url }});
-        if (invokeError || (data && data.error)) throw invokeError || new Error(JSON.stringify(data.error));
-        setWpUsers(data.users || []);
-    } catch (err: any) {
-        setError(`Falha ao buscar usuários: ${err.message}`);
-    } finally {
-        setIsUserLoading(false);
-    }
-  }, [vps, site.site_url]);
-
-  useEffect(() => {
-    if (isUserModalOpen && userMgmtView === 'user_list') {
-      handleGetUsers();
-    }
-  }, [isUserModalOpen, userMgmtView, handleGetUsers]);
 
   const renderUserManagementContent = () => {
     if (isUserLoading) return <div className="text-center p-8"><LoadingSpinner /></div>;
@@ -188,20 +165,36 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
   const fetchSiteData = useCallback(async () => {
       setIsLoading(true);
       setError('');
-      try {
-        const { data: overview, error: overviewError } = await supabase.functions.invoke('get-wp-site-overview', { body: { siteId: site.id } });
-        if (overviewError) throw overviewError;
-        setOverviewData(overview);
+      
+      const promises = [
+          supabase.functions.invoke('get-wp-site-overview', { body: { siteId: site.id } }),
+          supabase.functions.invoke('get-wp-site-articles', { body: { siteId: site.id } })
+      ];
 
-        const { data: articlesData, error: articlesError } = await supabase.functions.invoke('get-wp-site-articles', { body: { siteId: site.id } });
-        if (articlesError) throw articlesError;
-        setArticles(articlesData || []);
+      if (vps) {
+          promises.push(supabase.functions.invoke('get-wp-users', { body: { vpsId: vps.id, domain: site.site_url }}));
+      }
+
+      try {
+        const [overviewResult, articlesResult, usersResult] = await Promise.all(promises);
+
+        if (overviewResult.error) throw overviewResult.error;
+        setOverviewData(overviewResult.data);
+
+        if (articlesResult.error) throw articlesResult.error;
+        setArticles(articlesResult.data || []);
+
+        if (vps && usersResult) {
+            if (usersResult.error) throw usersResult.error;
+            setWpUsers(usersResult.data.users || []);
+        }
+
       } catch (err: any) {
         setError(err.message || 'Falha ao buscar dados do site.');
       } finally {
         setIsLoading(false);
       }
-    }, [site.id]);
+    }, [site.id, vps]);
 
   useEffect(() => {
     fetchSiteData();
@@ -244,7 +237,13 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
                 </button>
             </div>
             <div className="bg-gray-800/50 rounded-lg border border-white/10 p-6">
-                <p className="text-gray-400">Gerencie os usuários do seu site WordPress diretamente do servidor. Esta funcionalidade requer que o site tenha sido instalado através do painel.</p>
+                {isLoading ? (
+                    <p className="text-gray-400">Carregando usuários...</p>
+                ) : (
+                    <p className="text-gray-400">
+                        <span className="font-bold text-white">{wpUsers.length}</span> usuários encontrados neste site. Clique em "Gerenciar Usuários" para ver a lista completa.
+                    </p>
+                )}
             </div>
         </div>
       )}
