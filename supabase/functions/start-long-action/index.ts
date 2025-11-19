@@ -18,16 +18,16 @@ const getCommand = (action, params) => {
     case 'delete-wordpress-site':
       return `sudo wo site delete ${domain} --force`;
     case 'create-wp-user':
-        return `cd /var/www/${domain}/htdocs && wp user create ${username} ${email} --role=${role} --user_pass='${escapedPass}' --allow-root`;
+        return `wp user create ${username} ${email} --role=${role} --user_pass='${escapedPass}' --allow-root`;
     case 'delete-wp-user':
-        return `cd /var/www/${domain}/htdocs && wp user delete ${userId} --yes --allow-root`;
+        return `wp user delete ${userId} --yes --allow-root`;
     case 'update-wp-user': {
         let updateFlags = '';
         if (pass) updateFlags += ` --user_pass='${escapedPass}'`;
         if (email) updateFlags += ` --user_email=${email}`;
         if (role) updateFlags += ` --role=${role}`;
         if (!updateFlags) throw new Error('No update parameters provided for update-wp-user.');
-        return `cd /var/www/${domain}/htdocs && wp user update ${userId}${updateFlags} --allow-root`;
+        return `wp user update ${userId}${updateFlags} --allow-root`;
     }
     default:
       throw new Error(`Unknown action: ${action}`);
@@ -65,7 +65,42 @@ serve(async (req) => {
     const command = getCommand(action, params);
     const logFileName = `wo-action-${Date.now()}.log`;
     const pidFileName = `${logFileName}.pid`;
-    const commandToExecute = `nohup bash -c 'set -x; ${command}' > /tmp/${logFileName} 2>&1 & echo $! > /tmp/${pidFileName}`;
+    
+    let commandToExecute;
+    const userActions = ['create-wp-user', 'delete-wp-user', 'update-wp-user'];
+
+    if (userActions.includes(action)) {
+      const { domain } = params;
+      if (!domain) throw new Error('Domain is required for WP user actions.');
+      
+      const script = `
+        echo "--- Iniciando ação (${action}) para o domínio ${domain} ---"
+        set -x
+        
+        TARGET_DIR="/var/www/${domain}/htdocs"
+
+        if [ ! -d "$TARGET_DIR" ]; then
+          echo "ERRO: O diretório do site $TARGET_DIR não foi encontrado."
+          exit 1
+        fi
+
+        cd "$TARGET_DIR" || exit 1
+        
+        echo "--- Executando comando WP-CLI ---"
+        ${command}
+        
+        WP_EXIT_CODE=$?
+        echo "--- Comando WP-CLI finalizado com código de saída: $WP_EXIT_CODE ---"
+        
+        exit $WP_EXIT_CODE
+      `;
+      // Escape the entire script for safe execution inside nohup
+      const escapedScript = script.replace(/'/g, "'\\''");
+      commandToExecute = `nohup bash -c '${escapedScript}' > /tmp/${logFileName} 2>&1 & echo $! > /tmp/${pidFileName}`;
+
+    } else {
+      commandToExecute = `nohup bash -c 'set -x; ${command}' > /tmp/${logFileName} 2>&1 & echo $! > /tmp/${pidFileName}`;
+    }
 
     const sshResponse = await fetch(`${sshServiceUrl}/execute`, {
       method: 'POST',
