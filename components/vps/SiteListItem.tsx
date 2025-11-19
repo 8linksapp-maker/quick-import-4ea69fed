@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrashIcon, PencilIcon, InfoIcon, LockIcon } from '../Icons';
+import { TrashIcon, PencilIcon, InfoIcon, LockClosedIcon as LockIcon } from '../Icons';
 
 interface SiteListItemProps {
   site: string;
