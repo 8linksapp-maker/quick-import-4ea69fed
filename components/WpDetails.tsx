@@ -196,7 +196,13 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
 
       } catch (err: any) {
         console.error("Error fetching site data:", err);
-        setError(err.message || 'Falha ao buscar dados do site.');
+        let errorMessage = 'Falha ao buscar dados do site.';
+        if (err.context && err.context.error) {
+            errorMessage += ` Detalhes: ${JSON.stringify(err.context.error)}`;
+        } else if (err.message) {
+            errorMessage += ` Detalhes: ${err.message}`;
+        }
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
