@@ -7,6 +7,7 @@ interface SiteListItemProps {
   onSelect: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onInstallSsl: () => void;
 }
 
 const SiteListItem: React.FC<SiteListItemProps> = ({ site, isConnected, onSelect, onDelete, onEdit }) => {
@@ -23,6 +24,13 @@ const SiteListItem: React.FC<SiteListItemProps> = ({ site, isConnected, onSelect
               {!isConnected && <p className="text-xs text-yellow-400">Configurar Site</p>}
           </div>
       </div>      <div className="flex items-center gap-2 flex-shrink-0">
+         <button 
+          onClick={(e) => {e.stopPropagation(); onInstallSsl();}}
+          className="p-2 text-yellow-400 rounded-full hover:bg-gray-700 transition-colors"
+          title="Instalar/Reinstalar SSL"
+        >
+          <LockIcon className="w-5 h-5" />
+        </button>
          <button 
           onClick={(e) => {e.stopPropagation(); onEdit();}}
           className="p-2 text-blue-400 rounded-full hover:bg-gray-700 transition-colors"

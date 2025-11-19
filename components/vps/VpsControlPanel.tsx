@@ -227,14 +227,15 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                                 {filteredSites.map(site => {
                                     const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizeUrl(site));
                                     return (
-                                        <SiteCard 
-                                            key={site} 
-                                            site={site} 
-                                            isConnected={isConnected}
-                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizeUrl(site)))}
-                                            onDelete={() => setSiteToDelete(site)}
-                                            onEdit={() => handleEditSite(site)}
-                                        />
+<SiteCard 
+    key={site} 
+    site={site} 
+    isConnected={isConnected}
+    onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSite))}
+    onDelete={() => setSiteToDelete(site)}
+    onEdit={() => handleEditSite(site)}
+    onInstallSsl={() => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
+/>
                                     );
                                 })}
                             </div>
@@ -243,14 +244,15 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                                 {filteredSites.map(site => {
                                     const isConnected = connectedSites.some(cs => normalizeUrl(cs.site_url) === normalizeUrl(site));
                                     return (
-                                        <SiteListItem
-                                            key={site}
-                                            site={site}
-                                            isConnected={isConnected}
-                                            onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizeUrl(site)))}
-                                            onDelete={() => setSiteToDelete(site)}
-                                            onEdit={() => handleEditSite(site)}
-                                        />
+<SiteListItem
+    key={site}
+    site={site}
+    isConnected={isConnected}
+    onSelect={() => onSiteSelect(site, vps, connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSite))}
+    onDelete={() => setSiteToDelete(site)}
+    onEdit={() => handleEditSite(site)}
+    onInstallSsl={() => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
+/>
                                     );
                                 })}
                             </div>
