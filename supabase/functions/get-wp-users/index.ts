@@ -46,25 +46,26 @@ serve(async (req) => {
     });
 
     const responseData = await response.json();
-
+    
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: responseData }), {
+      const errorDetails = responseData.stderr || responseData.error || JSON.stringify(responseData);
+      throw new Error(`Falha ao executar comando no servidor: ${errorDetails}`);
+    }
+
+    try {
+      const users = JSON.parse(responseData.stdout);
+      return new Response(JSON.stringify({ users }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
+    } catch (parseError) {
+      throw new Error(`Erro ao processar a resposta do servidor. Saída recebida: ${responseData.stdout || 'vazio'}`);
     }
-
-    const users = JSON.parse(responseData.stdout);
-
-    return new Response(JSON.stringify({ users }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: { message: error.message } }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
+      status: 400, // Use 400 for client-side or server-side execution errors
     });
   }
 });
