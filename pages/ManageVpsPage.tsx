@@ -281,6 +281,84 @@ const WpUsersModal = ({ users, onClose, onAdd, onEdit, onDelete }) => (
     </Modal>
 );
 
+const SiteListItem = ({ site, onManageUsers, onInstallSsl, onDeleteSite, isJobRunning }) => (
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex items-center justify-between">
+        <span className="font-semibold text-lg text-white">{site}</span>
+        <div className="flex items-center gap-3">
+            <a href={`https://${site}/wp-admin`} target="_blank" rel="noopener noreferrer" className={`text-sm bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition-colors ${isJobRunning ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                Painel WP
+            </a>
+            <button onClick={onManageUsers} disabled={isJobRunning} className="text-sm bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-500 disabled:opacity-50 transition-colors">
+                Usuários
+            </button>
+            {/* Ações do Site Dropdown */}
+            <div className="relative">
+                 <select disabled={isJobRunning} onChange={(e) => {
+                     if (e.target.value === 'ssl') onInstallSsl();
+                     if (e.target.value === 'delete') onDeleteSite();
+                     e.target.value = ''; // Reset select
+                 }} className="text-sm bg-gray-600 text-white py-2 px-3 rounded-md hover:bg-gray-500 disabled:opacity-50 transition-colors appearance-none cursor-pointer">
+                    <option value="" disabled selected>Ações</option>
+                    <option value="ssl">Instalar/Renovar SSL</option>
+                    <option value="delete">Deletar Site</option>
+                </select>
+            </div>
+        </div>
+    </div>
+);
+
+const SiteList = ({ sites, onManageUsers, onInstallSsl, onDeleteSite, isJobRunning }) => (
+    <div className="space-y-4">
+        <h2 className="text-2xl font-bold tracking-tighter text-white">Sites Instalados</h2>
+        {sites.length > 0 ? (
+            sites.map(site => (
+                <SiteListItem 
+                    key={site} 
+                    site={site} 
+                    onManageUsers={() => onManageUsers(site)}
+                    onInstallSsl={() => onInstallSsl(site)}
+                    onDeleteSite={() => onDeleteSite(site)}
+                    isJobRunning={isJobRunning}
+                />
+            ))
+        ) : (
+            <p className="text-gray-500">Nenhum site WordPress instalado nesta VPS.</p>
+        )}
+    </div>
+);
+
+
+const DeleteSiteModal = ({ site, onConfirm, onCancel }) => {
+    const [confirmationText, setConfirmationText] = useState('');
+    const isConfirmed = confirmationText === site;
+
+    return (
+        <Modal isOpen={true} onClose={onCancel} title="Confirmar Exclusão do Site">
+            <p className="text-gray-300 mb-4">Esta ação é irreversível. O site <strong>{site}</strong> e seu banco de dados serão permanentemente removidos.</p>
+            <p className="text-gray-300 mb-4">Para confirmar, digite <strong>{site}</strong> no campo abaixo.</p>
+            <InputField
+                id="delete-confirm"
+                type="text"
+                value={confirmationText}
+                onChange={(e) => setConfirmationText(e.target.value)}
+                placeholder={site}
+            />
+            <div className="flex justify-end items-center gap-4 mt-6">
+                <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
+                <button 
+                    type="button" 
+                    onClick={() => onConfirm(site)} 
+                    disabled={!isConfirmed} 
+                    className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                >
+                    Excluir Permanentemente
+                </button>
+            </div>
+        </Modal>
+    );
+};
+
+
 const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [sites, setSites] = useState<string[]>([]);
@@ -292,12 +370,11 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     const pollingRef = useRef<number | null>(null);
 
     const [wpUsers, setWpUsers] = useState<any[]>([]);
-    const [userMgmtView, setUserMgmtView] = useState('select_site'); // select_site, loading, user_list
+    const [userMgmtView, setUserMgmtView] = useState<'select_site' | 'loading' | 'user_list' | 'add_user' | 'edit_user' | 'confirm_delete'>('select_site');
     const [currentUserDomain, setCurrentUserDomain] = useState<string | null>(null);
     const [userToDelete, setUserToDelete] = useState<any | null>(null);
     const [userToEdit, setUserToEdit] = useState<any | null>(null);
-
-    const [errorModalContent, setErrorModalContent] = useState<{ title: string; message: string; details?: string } | null>(null);
+    const [siteToDelete, setSiteToDelete] = useState<string | null>(null);
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -373,12 +450,14 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         setActiveJob(prev => prev ? { ...prev, status: finalStatus, title: finalTitle, error: finalError, warning: finalWarning } : null);
         
         // Only refetch on true success (no warnings, no errors)
-        if (finalStatus === 'completed' && !finalWarning) {
-            if (job.action.includes('site')) fetchSites();
-            if (job.action.includes('wp-user')) {
-                handleGetUsers({ domain: currentUserDomain });
-            }
-            if (job.action === 'install-wordops') checkWoStatus();
+        const shouldRefetchSites = (job.action.includes('site') || job.action.includes('wordops')) && finalStatus === 'completed' && !finalWarning;
+        
+        if (shouldRefetchSites) {
+            fetchSites();
+        }
+
+        if (job.action.includes('wp-user') && finalStatus === 'completed' && !finalWarning) {
+            handleGetUsers({ domain: currentUserDomain });
         }
 
         setTimeout(() => setActiveJob(null), 15000);
@@ -416,6 +495,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
 
     const startAction = async ({ action, params, title }) => {
         setModalState({ type: '', isOpen: false });
+        setSiteToDelete(null);
         setUserMgmtView('select_site');
         setActiveJob({ action, title, status: 'running' });
 
@@ -434,6 +514,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
     };
 
     const handleGetUsers = async ({ domain }) => {
+        setModalState({ type: 'manage-wp-users', isOpen: true });
         setUserMgmtView('loading');
         setCurrentUserDomain(domain);
         try {
@@ -449,6 +530,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         } catch (err: any) {
             setError(`Falha ao buscar usuários: ${err.message}`);
             setUserMgmtView('select_site'); // Go back to selection on error
+            setModalState({ type: '', isOpen: false });
         }
     };
 
@@ -470,7 +552,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                 return (
                     <AddWpUserForm
                         domain={currentUserDomain}
-                        onSubmit={(params) => startAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.user_login}` })}
+                        onSubmit={(params) => startAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.username}` })}
                         onCancel={() => setUserMgmtView('user_list')}
                     />
                 );
@@ -491,15 +573,8 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                         onCancel={() => setUserMgmtView('user_list')}
                     />
                 );
-            case 'select_site':
             default:
-                return (
-                    <ManageWpUsersForm 
-                        sites={sites} 
-                        onSubmit={handleGetUsers} 
-                        onCancel={() => setModalState({ type: '', isOpen: false })} 
-                    />
-                );
+              return null; // Should not happen as we now open the modal and go straight to loading
         }
     };
 
@@ -510,13 +585,25 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
         const isJobRunning = activeJob?.status === 'running';
 
         if (woStatus === 'installed') {
-            if (sitesLoading) return <div className="text-center"><LoadingSpinner /> <p className="mt-4">Carregando sites instalados...</p></div>;
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} loading={isJobRunning} />
-                <ActionCard title="Instalar SSL em um Site" onClick={() => setModalState({ type: 'install-ssl', isOpen: true })} loading={isJobRunning} />
-                <ActionCard title="Gerenciar Usuários WP" onClick={() => { setUserMgmtView('select_site'); setModalState({ type: 'manage-wp-users', isOpen: true }); }} loading={isJobRunning} />
-                <ActionCard title="Deletar VPS" onClick={() => setModalState({ type: 'delete-vps', isOpen: true })} loading={isJobRunning} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="md:col-span-1">
+                    <h2 className="text-2xl font-bold tracking-tighter text-white mb-4">Ações</h2>
+                    <ActionCard title="Instalar Site WordPress" onClick={() => setModalState({ type: 'create-site', isOpen: true })} loading={isJobRunning} />
+                </div>
+                <div className="md:col-span-2">
+                    {sitesLoading ? (
+                        <div className="text-center"><LoadingSpinner /> <p className="mt-4">Carregando sites instalados...</p></div>
+                    ) : (
+                        <SiteList 
+                            sites={sites}
+                            isJobRunning={isJobRunning}
+                            onManageUsers={(site) => handleGetUsers({ domain: site })}
+                            onInstallSsl={(site) => startAction({ action: 'install-ssl-site', params: { domain: site }, title: `Instalando SSL em ${site}` })}
+                            onDeleteSite={(site) => setSiteToDelete(site)}
+                        />
+                    )}
+                </div>
               </div>
             );
         }
@@ -542,6 +629,9 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                     <p className="text-gray-400 text-lg">{vps.host}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button onClick={() => onVpsDeleted()} className="text-sm bg-red-600 text-white py-2 px-3 rounded-md hover:bg-red-700 transition-colors">
+                        Deletar VPS
+                    </button>
                     {woStatus === 'installed' && <CheckCircleIcon />}
                     {woStatus === 'not-installed' && <XCircleIcon />}
                     <span className="text-lg">{woStatus === 'installed' ? 'WordOps Instalado' : (woStatus === 'not-installed' ? 'WordOps Não Instalado' : 'Verificando...')}</span>
@@ -556,18 +646,21 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted }) => {
                     <CreateSiteForm onSubmit={(params) => startAction({ action: 'create-wordpress-site', params, title: `Criando site ${params.domain}` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
                 </Modal>
             )}
-            {modalState.isOpen && modalState.type === 'install-ssl' && (
-                <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Instalar SSL em um Site">
-                    <InstallSslForm sites={sites} onSubmit={(params) => startAction({ action: 'install-ssl-site', params, title: `Instalando SSL em ${params.domain}` })} onCancel={() => setModalState({ type: '', isOpen: false })} />
-                </Modal>
-            )}
+            
+            {/* User Management Modal */}
             {modalState.isOpen && modalState.type === 'manage-wp-users' && (
-                <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title="Gerenciar Usuários WordPress">
+                <Modal isOpen={true} onClose={() => setModalState({ type: '', isOpen: false })} title={`Gerenciando Usuários de ${currentUserDomain}`}>
                     {renderUserManagementContent()}
                 </Modal>
             )}
-            {modalState.isOpen && modalState.type === 'delete-vps' && (
-                <DeleteVpsModal onConfirm={() => startAction({ action: 'delete-vps-credentials', params: { id: vps.id }, title: 'Excluindo VPS...' })} onCancel={() => setModalState({ type: '', isOpen: false })} />
+
+            {/* Site Deletion Modal */}
+            {siteToDelete && (
+                <DeleteSiteModal 
+                    site={siteToDelete}
+                    onConfirm={(site) => startAction({ action: 'delete-wordpress-site', params: { domain: site }, title: `Deletando site ${site}` })}
+                    onCancel={() => setSiteToDelete(null)}
+                />
             )}
         </div>
     );
