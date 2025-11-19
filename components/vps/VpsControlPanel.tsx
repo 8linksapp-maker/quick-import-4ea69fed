@@ -262,10 +262,15 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect }) => {
                     {filteredSites.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {filteredSites.map(site => (
-                                <SiteCard key={site} site={site} onSelect={() => onSiteSelect(site, vps)} />
+                                <SiteCard 
+                                    key={site} 
+                                    site={site} 
+                                    onSelect={() => onSiteSelect(site, vps)}
+                                    onDelete={() => setSiteToDelete(site)}
+                                    onEdit={() => alert('A funcionalidade de editar sites diretamente pela VPS ainda não está disponível.')}
+                                />
                             ))}
-                        </div>
-                    ) : (
+                        </div>                    ) : (
                         <div className="text-center py-10 px-4 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg">
                             <p className="text-gray-400">Nenhum site WordPress instalado nesta VPS.</p>
                             <p className="text-sm text-gray-500 mt-2">Use o botão "Instalar Site WordPress" para começar.</p>
