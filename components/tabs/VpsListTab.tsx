@@ -2,19 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../src/supabaseClient';
 import VpsCard, { VpsData } from '../VpsCard';
 import Modal from '../Modal';
-import { AddIcon as PlusIcon, SearchIcon } from '../Icons';
-import VpsControlPanel from '../vps/VpsControlPanel';
+import { SearchIcon } from '../Icons';
 import EditVpsForm from '../EditVpsForm';
 
 interface VpsListTabProps {
-  isAddModalOpen: boolean;
-  setIsAddModalOpen: (isOpen: boolean) => void;
-  onVpsAdded: () => void;
+  onVpsSelect: (vps: VpsData) => void;
   refetchTrigger: number;
 }
 
-const VpsListTab: React.FC<VpsListTabProps> = ({ isAddModalOpen, setIsAddModalOpen, onVpsAdded, refetchTrigger }) => {
-  const [selectedVps, setSelectedVps] = useState<VpsData | null>(null);
+const VpsListTab: React.FC<VpsListTabProps> = ({ onVpsSelect, refetchTrigger }) => {
   const [vpsList, setVpsList] = useState<VpsData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,10 +33,8 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ isAddModalOpen, setIsAddModalOp
   }, []);
 
   useEffect(() => {
-    if (!selectedVps) {
-        fetchVpsList();
-    }
-  }, [fetchVpsList, selectedVps, refetchTrigger]);
+    fetchVpsList();
+  }, [fetchVpsList, refetchTrigger]);
 
   const handleVpsUpdated = () => { fetchVpsList(); setIsEditModalOpen(false); setVpsToEdit(null); };
 
@@ -61,10 +55,11 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ isAddModalOpen, setIsAddModalOp
     }
   };
 
-  const renderListView = () => {
-    if (loading) return <p className="text-center py-10">Carregando seus VPSs...</p>;
-    if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
-    return (
+  if (loading) return <p className="text-center py-10">Carregando seus VPSs...</p>;
+  if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
+
+  return (
+    <>
       <div className="py-8 animate-fade-in">
         <div className="relative mb-8">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
@@ -72,22 +67,12 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ isAddModalOpen, setIsAddModalOp
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {vpsList.filter(vps => vps.host.toLowerCase().includes(searchTerm.toLowerCase())).map(vps => (
-            <div key={vps.id} onClick={() => setSelectedVps(vps)}>
-                <VpsCard vps={vps} onDelete={() => handleDeleteVps(vps.id)} onEdit={() => handleEditVps(vps)} />
+            <div key={vps.id} onClick={() => onVpsSelect(vps)}>
+                <VpsCard vps={vps} onDelete={(e) => { e.stopPropagation(); handleDeleteVps(vps.id); }} onEdit={(e) => { e.stopPropagation(); handleEditVps(vps); }} />
             </div>
           ))}
         </div>
       </div>
-    );
-  }
-
-  if (selectedVps) {
-    return <VpsControlPanel vps={selectedVps} onBack={() => setSelectedVps(null)} onVpsDeleted={() => { setSelectedVps(null); fetchVpsList(); }} />
-  }
-
-  return (
-    <>
-      {renderListView()}
       {vpsToEdit && (
         <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setVpsToEdit(null); }} title="Editar VPS">
             <EditVpsForm vps={vpsToEdit} onVpsUpdated={handleVpsUpdated} onCancel={() => { setIsEditModalOpen(false); setVpsToEdit(null); }} />

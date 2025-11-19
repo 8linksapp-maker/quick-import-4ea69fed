@@ -4,6 +4,8 @@ import Modal from '../components/Modal';
 
 import VpsListTab from '../components/tabs/VpsListTab';
 import AddVpsForm from '../components/AddVpsForm';
+import { VpsData } from '../components/VpsCard'; // Import VpsData
+import VpsControlPanel from '../components/vps/VpsControlPanel'; // Import VpsControlPanel
 
 import SitesListTab from '../components/tabs/SitesListTab';
 import AddWpSiteForm from '../components/AddWpSiteForm';
@@ -13,24 +15,22 @@ const BlogHousePage = () => {
   const [activeTab, setActiveTab] = useState<'vps' | 'sites'>('vps');
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // VPS Modal State
+  // VPS State
   const [isAddVpsModalOpen, setIsAddVpsModalOpen] = useState(false);
+  const [selectedVps, setSelectedVps] = useState<VpsData | null>(null);
   
   // Site Modal State
   const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
 
   const handleContentAdded = () => {
-    // This single handler can be used by both forms
     setIsAddVpsModalOpen(false);
     setIsAddSiteModalOpen(false);
-    setRefetchTrigger(prev => prev + 1); // Increment to trigger refetch in the active tab
+    setRefetchTrigger(prev => prev + 1);
   };
 
   const renderVpsContent = () => {
     return <VpsListTab 
-              isAddModalOpen={isAddVpsModalOpen} 
-              setIsAddModalOpen={setIsAddVpsModalOpen}
-              onVpsAdded={handleContentAdded}
+              onVpsSelect={setSelectedVps}
               refetchTrigger={refetchTrigger}
             />;
   };
@@ -38,6 +38,19 @@ const BlogHousePage = () => {
   const renderSitesContent = () => {
     return <SitesListTab refetchTrigger={refetchTrigger} />;
   };
+  
+  // If a VPS is selected, show the control panel in "full screen"
+  if (selectedVps) {
+    return (
+      <div className="pt-24 bg-[#141414] min-h-screen text-white">
+        <VpsControlPanel 
+          vps={selectedVps} 
+          onBack={() => setSelectedVps(null)} 
+          onVpsDeleted={() => { setSelectedVps(null); setRefetchTrigger(prev => prev + 1); }} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="pt-24 bg-[#141414] min-h-screen text-white px-4 md:px-16 py-8">
@@ -85,7 +98,7 @@ const BlogHousePage = () => {
             Sites WordPress
           </button>
         </div>
-        <div className="bg-gray-800 rounded-b-lg">
+        <div>
           {activeTab === 'vps' ? renderVpsContent() : renderSitesContent()}
         </div>
       </div>
