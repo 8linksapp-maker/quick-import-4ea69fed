@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreVerticalIcon, TrashIcon, PencilIcon, InfoIcon } from '../Icons';
+import { TrashIcon, PencilIcon, InfoIcon, LockIcon } from '../Icons';
 
 interface SiteListItemProps {
   site: string;
@@ -10,7 +10,7 @@ interface SiteListItemProps {
   onInstallSsl: () => void;
 }
 
-const SiteListItem: React.FC<SiteListItemProps> = ({ site, isConnected, onSelect, onDelete, onEdit }) => {
+const SiteListItem: React.FC<SiteListItemProps> = ({ site, isConnected, onSelect, onDelete, onEdit, onInstallSsl }) => {
   // O menu dropdown foi movido para o SiteCard, mas podemos ter botões diretos aqui
   return (
     <div 
