@@ -63,7 +63,7 @@ const BlogHousePage = () => {
         created_at: '',
     };
     return (
-        <div className="pt-24 bg-[#141414] min-h-screen text-white">
+        <div className="pt-24 bg-[#141414] min-h-screen text-white px-4 md:px-16 py-8">
             <WpDetails site={siteDataForDetails} onBack={() => setSelectedSite(null)} />
         </div>
     );
