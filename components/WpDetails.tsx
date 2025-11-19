@@ -191,6 +191,8 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
             console.log("Users Result:", usersResult);
             if (usersResult.error) throw new Error(`Users Error: ${JSON.stringify(usersResult.error)}`);
             setWpUsers(usersResult.data.users || []);
+        setIsUserModalOpen(true); // Abre o modal de usuários automaticamente
+        setUserMgmtView('user_list'); // Define a visualização como lista de usuários
             console.log("wpUsers state set with:", usersResult.data.users);
         }
 
@@ -243,11 +245,7 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
         <div>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-semibold">Usuários do Site</h3>
-                <button onClick={() => { setUserMgmtView('user_list'); setIsUserModalOpen(true); }} className="bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-600 flex items-center gap-2">
-                    <UsersIcon className="w-5 h-5" />
-                    Gerenciar Usuários
-                </button>
-            </div>
+                            </div>
             <div className="bg-gray-800/50 rounded-lg border border-white/10 p-6">
                 {isLoading ? (
                     <p className="text-gray-400">Carregando usuários...</p>

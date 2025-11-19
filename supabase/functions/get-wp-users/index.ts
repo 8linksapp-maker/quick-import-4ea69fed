@@ -13,10 +13,13 @@ serve(async (req) => {
       Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { vpsId, domain } = await req.json();
-    if (!vpsId || !domain) {
+    const { vpsId, domain: rawDomain } = await req.json();
+    if (!vpsId || !rawDomain) {
       throw new Error('vpsId and domain are required.');
     }
+
+    // Limpa o domínio removendo o protocolo e a barra final, se existirem.
+    const domain = rawDomain.replace(/^(https?:\/\/)/, '').replace(/\/$/, '');
 
     const { data: credentials, error: credError } = await supabaseClient
       .from('vps_credentials')
