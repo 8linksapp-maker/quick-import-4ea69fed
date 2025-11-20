@@ -7,6 +7,8 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  console.log('--- get-installed-sites v2 (with logging) ---');
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -15,6 +17,7 @@ serve(async (req) => {
 
     const { vpsId } = await req.json();
     if (!vpsId) throw new Error('vpsId is required.');
+    console.log(`[DEBUG] vpsId: ${vpsId}`);
 
     const { data: credentials, error: credError } = await supabaseClient
       .from('vps_credentials')
@@ -24,11 +27,13 @@ serve(async (req) => {
 
     if (credError) throw credError;
     if (!credentials) throw new Error('VPS credentials not found.');
+    console.log(`[DEBUG] Found credentials for host: ${credentials.host}`);
 
     const sshServiceUrl = Deno.env.get('VERCEL_SSH_SERVICE_URL');
     if (!sshServiceUrl) throw new Error('VERCEL_SSH_SERVICE_URL is not set.');
 
     const command = 'ls /etc/nginx/sites-available/';
+    console.log(`[DEBUG] Executing command: "${command}"`);
 
     const response = await fetch(`${sshServiceUrl}/execute`, {
       method: 'POST',
@@ -43,13 +48,37 @@ serve(async (req) => {
       }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Proxy service returned an error.');
+    console.log(`[DEBUG] SSH service response status: ${response.status}`);
+    
+    const responseText = await response.text();
+    console.log(`[DEBUG] SSH service response body (text): ${responseText}`);
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      console.error('[DEBUG] Failed to parse SSH service response as JSON.');
+      throw new Error(`Invalid JSON response from SSH service: ${responseText}`);
     }
 
-    const responseData = await response.json();
-    const sites = responseData.stdout.trim().split('\n').filter(Boolean); // Split by newline and remove empty entries
+    if (!response.ok) {
+      console.log(`[DEBUG] Response not OK. Returning empty sites list. Error from service:`, responseData.error);
+      return new Response(JSON.stringify({ sites: [], error: responseData.error || 'Erro ao comunicar com o serviço SSH.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, 
+      });
+    }
+
+    if (responseData.exitCode !== 0) {
+      console.log(`[DEBUG] Command failed on VPS. exitCode: ${responseData.exitCode}. stderr: ${responseData.stderr}`);
+      return new Response(JSON.stringify({ sites: [], error: responseData.stderr || `Command failed with code ${responseData.exitCode}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, 
+      });
+    }
+
+    const sites = responseData.stdout.trim().split('\n').filter(Boolean);
+    console.log(`[DEBUG] Successfully retrieved sites: ${JSON.stringify(sites)}`);
 
     return new Response(JSON.stringify({ sites }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,9 +86,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error(`[DEBUG] CATCH BLOCK ERROR in get-installed-sites: ${error.message}`);
+    return new Response(JSON.stringify({ sites: [], error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200, 
     });
   }
 });

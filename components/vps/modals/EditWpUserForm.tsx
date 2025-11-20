@@ -7,7 +7,7 @@ const EditWpUserForm = ({ user, domain, onSubmit, onCancel }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ domain, userId: user.ID, pass: userPass, role: userRole });
+        onSubmit({ domain, userId: user.ID, userLogin: user.user_login, pass: userPass, role: userRole });
     };
 
     return (

@@ -19,6 +19,14 @@ import GuestRoute from './src/GuestRoute';
 
 const router = createBrowserRouter([
     {
+        path: '/login',
+        element: (
+            <GuestRoute>
+                <LoginPage />
+            </GuestRoute>
+        ),
+    },
+    {
         path: '/',
         element: (
             <ProtectedRoute>

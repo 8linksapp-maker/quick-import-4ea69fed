@@ -7,6 +7,8 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  console.log('--- check-wordops-installed v4 (final logic) ---');
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -15,6 +17,7 @@ serve(async (req) => {
 
     const { vpsId } = await req.json();
     if (!vpsId) throw new Error('vpsId is required.');
+    console.log(`[DEBUG] vpsId: ${vpsId}`);
 
     const { data: credentials, error: credError } = await supabaseClient
       .from('vps_credentials')
@@ -24,11 +27,13 @@ serve(async (req) => {
 
     if (credError) throw credError;
     if (!credentials) throw new Error('VPS credentials not found.');
+    console.log(`[DEBUG] Found credentials for host: ${credentials.host}`);
 
     const sshServiceUrl = Deno.env.get('VERCEL_SSH_SERVICE_URL');
     if (!sshServiceUrl) throw new Error('VERCEL_SSH_SERVICE_URL is not set.');
 
-    const command = 'command -v wo'; // Check for the existence of the 'wo' command
+    const command = 'wo --version'; 
+    console.log(`[DEBUG] Executing command: "${command}"`);
 
     const response = await fetch(`${sshServiceUrl}/execute`, {
       method: 'POST',
@@ -43,8 +48,36 @@ serve(async (req) => {
       }),
     });
 
-    // If the command executes successfully (exit code 0), it means 'wo' exists.
-    const installed = response.ok;
+    console.log(`[DEBUG] SSH service response status: ${response.status}`);
+    const responseText = await response.text();
+    console.log(`[DEBUG] SSH service response body (text): ${responseText}`);
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      console.error('[DEBUG] Failed to parse SSH service response as JSON. Raw response:', responseText);
+      // If SSH service doesn't return JSON, it's an unexpected error, so WordOps is not installed.
+      return new Response(JSON.stringify({ installed: false, error: 'Unexpected response from SSH service.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    // If SSH service returns non-200 (e.g., 500 for command failure)
+    if (!response.ok) {
+        // This is the EXPECTED path when 'wo --version' is not found (exitCode 127 from SSH service)
+        // or other command-related failure. It means WordOps is NOT installed.
+        console.log(`[DEBUG] Command failed (HTTP ${response.status}). Treating as not installed. exitCode: ${responseData.exitCode}`);
+        return new Response(JSON.stringify({ installed: false }), { // Return false, NO error message for this expected scenario
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        });
+    }
+
+    // If SSH service returns 200 OK, check its internal exitCode
+    const installed = responseData.exitCode === 0;
+    console.log(`[DEBUG] Command succeeded (HTTP 200). Parsed exitCode: ${responseData.exitCode}. Determined installed: ${installed}`);
 
     return new Response(JSON.stringify({ installed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -52,9 +85,11 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error(`[DEBUG] CATCH BLOCK ERROR in check-wordops-installed: ${error.message}`);
+    // For any other unexpected errors, return installed: false with the error message.
+    return new Response(JSON.stringify({ installed: false, error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200, 
     });
   }
 });

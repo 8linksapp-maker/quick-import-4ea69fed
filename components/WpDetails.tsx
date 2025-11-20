@@ -111,33 +111,10 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
 
   // --- User Management State ---
   const [wpUsers, setWpUsers] = useState<any[]>([]);
-  const [userMgmtView, setUserMgmtView] = useState('user_list');
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
   const [userToEdit, setUserToEdit] = useState<any | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(false);
-
-  const startUserAction = async ({ action, params, title }) => {
-    if (!vps) return;
-    // setIsUserModalOpen(false); // Não é mais necessário, pois não estamos usando o modal principal
-    alert(`Ação de usuário '${title}' iniciada. Acompanhe o status no painel da VPS.`);
-    setUserMgmtView('user_list'); // Retorna para a lista após a ação
-    fetchSiteData(); // Recarrega os dados para refletir as mudanças
-  };
-  // --- End of User Management ---
-
-  const handleDeleteArticle = async (postId) => {
-    if (window.confirm('Tem certeza que deseja deletar este artigo?')) {
-      try {
-        const { error } = await supabase.functions.invoke('delete-wp-site-article', {
-          body: { siteId: site.id, postId },
-        });
-        if (error) throw error;
-        setArticles(articles.filter(article => article.id !== postId));
-      } catch (err: any) {
-        setError(err.message || 'Falha ao deletar o artigo.');
-      }
-    }
-  };
 
   const handleArticleCreated = (tempArticle) => {
     setArticles(prevArticles => [tempArticle, ...prevArticles]);
@@ -151,6 +128,21 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
     setTimeout(() => fetchSiteData(), 3000);
   };
 
+  const fetchWpUsers = useCallback(async () => {
+    if (!vps) return; // Garante que só executa se houver VPS
+    setIsUserLoading(true);
+    try {
+      const { data, error: usersError } = await supabase.functions.invoke('get-wp-users', { body: { vpsId: vps.id, domain: site.site_url }});
+      if (usersError) throw new Error(`Users Error: ${JSON.stringify(usersError)}`);
+      setWpUsers(data.users || []);
+    } catch (err: any) {
+      console.error("Error fetching WP users:", err);
+      setError(err.message || 'Falha ao buscar usuários WP.');
+    } finally {
+      setIsUserLoading(false);
+    }
+  }, [site.site_url, vps]); // Adiciona vps às dependências do useCallback
+
   const fetchSiteData = useCallback(async () => {
       setIsLoading(true);
       setError('');
@@ -162,26 +154,14 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
           supabase.functions.invoke('get-wp-site-articles', { body: { siteId: site.id } })
       ];
 
-      if (vps) {
-          console.log("Preparing to fetch users with:", { vpsId: vps.id, domain: site.site_url });
-          promises.push(supabase.functions.invoke('get-wp-users', { body: { vpsId: vps.id, domain: site.site_url }}));
-      }
-
       try {
-        const [overviewResult, articlesResult, usersResult] = await Promise.all(promises);
+        const [overviewResult, articlesResult] = await Promise.all(promises);
 
         if (overviewResult.error) throw new Error(`Overview Error: ${JSON.stringify(overviewResult.error)}`);
         setOverviewData(overviewResult.data);
 
         if (articlesResult.error) throw new Error(`Articles Error: ${JSON.stringify(articlesResult.error)}`);
         setArticles(articlesResult.data || []);
-
-        if (vps && usersResult) {
-            console.log("Users Result:", usersResult);
-            if (usersResult.error) throw new Error(`Users Error: ${JSON.stringify(usersResult.error)}`);
-            setWpUsers(usersResult.data.users || []);
-            console.log("wpUsers state set with:", usersResult.data.users);
-        }
 
       } catch (err: any) {
         console.error("Error fetching site data:", err);
@@ -195,11 +175,49 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
       } finally {
         setIsLoading(false);
       }
-    }, [site.id, vps]);
+    }, [site.id, vps]); // Adiciona vps às dependências do useCallback, pois ele é usado no console.log
 
   useEffect(() => {
     fetchSiteData();
-  }, [fetchSiteData]);
+    if (vps) { // Se houver VPS, também busca os usuários
+      fetchWpUsers();
+    }
+  }, [fetchSiteData, fetchWpUsers, vps]); // Adiciona fetchWpUsers e vps às dependências do useEffect
+
+  const startUserAction = async ({ action, params, title }) => {
+    if (!vps) return;
+    setIsUserLoading(true); // Inicia o estado de carregamento
+    setError(''); // Limpa erros anteriores
+    try {
+      // Invoca a função 'start-long-action' com a ação e parâmetros
+      const { data, error: invokeError } = await supabase.functions.invoke('start-long-action', {
+        body: {
+          action,
+          vpsId: vps.id,
+          params: { // params agora é um objeto aninhado
+            domain: site.site_url, // 'domain' também deve ser parte de 'params'
+            ...params,
+          },
+        },
+      });
+
+      if (invokeError) throw invokeError;
+      
+      // Verifica o exitCode da execução do comando na VPS
+      if (data.exitCode !== 0) {
+        throw new Error(`Comando falhou na VPS (código ${data.exitCode}).\nSTDOUT: ${data.stdout || 'N/A'}\nSTDERR: ${data.stderr || 'N/A'}`);
+      } else {
+        // Sucesso - o feedback visual será através da atualização da lista de usuários e JobStatus
+      }
+
+    } catch (err: any) {
+      console.error(`Erro ao executar ação de usuário '${title}':`, err);
+      setError(err.message || `Falha ao executar a ação de usuário '${title}'.`); // Define o erro para ser exibido na UI
+    } finally {
+      setIsUserLoading(false); // Finaliza o estado de carregamento
+      fetchWpUsers(); // Recarrega APENAS os dados dos usuários para refletir as mudanças
+    }
+  };
 
   if (isLoading && articles.length === 0) {
     return (
@@ -232,47 +250,47 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
         <>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-2xl font-semibold">Usuários do Site</h3>
-                            </div>
-                        <div className="bg-gray-800/50 rounded-lg border border-white/10 p-6">
-                            {isLoading ? (
-                                <p className="text-gray-400">Carregando usuários...</p>
-                            ) : (
-                                <>
-                                    <div className="mb-4">
-                                        <button onClick={() => setUserMgmtView('add_user')} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
-                                            Adicionar Novo Usuário
-                                        </button>
-                                    </div>
-                                    <div className="max-h-96 overflow-y-auto">
-                                        <table className="w-full text-sm text-left text-gray-400">
-                                            <thead className="text-xs text-gray-300 uppercase bg-gray-700">
-                                                <tr>
-                                                    <th scope="col" className="px-6 py-3">ID</th>
-                                                    <th scope="col" className="px-6 py-3">Login</th>
-                                                    <th scope="col" className="px-6 py-3">Email</th>
-                                                    <th scope="col" className="px-6 py-3">Role</th>
-                                                    <th scope="col" className="px-6 py-3">Ações</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {wpUsers.map((user) => (
-                                                    <tr key={user.ID} className="bg-gray-800 border-b border-gray-700">
-                                                        <td className="px-6 py-4">{user.ID}</td>
-                                                        <td className="px-6 py-4">{user.user_login}</td>
-                                                        <td className="px-6 py-4">{user.user_email}</td>
-                                                        <td className="px-6 py-4">{user.roles}</td>
-                                                        <td className="px-6 py-4">
-                                                            <button onClick={() => { setUserToEdit(user); setUserMgmtView('edit_user'); }} className="font-medium text-blue-500 hover:underline mr-4">Editar</button>
-                                                            <button onClick={() => { setUserToDelete(user); setUserMgmtView('confirm_delete'); }} className="font-medium text-red-500 hover:underline">Deletar</button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                <button onClick={() => { setUserToEdit(null); setUserToDelete(null); setIsUserModalOpen(true); }} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700" disabled={isUserLoading}>
+                    Adicionar Novo Usuário
+                </button>
+            </div>
+                                                    <div className="bg-gray-800/50 rounded-lg border border-white/10">
+                                                    {(isLoading || isUserLoading) ? (
+                                                        <p className="text-gray-400 flex items-center gap-2">
+                                                          <LoadingSpinner /> Carregando usuários ou executando ação...
+                                                        </p>
+                                                    ) : (
+                                                        <>
+                                                            <div className="max-h-96 overflow-y-auto">
+                                                                <table className="w-full text-sm text-left text-gray-400">
+                                                                    <thead className="bg-gray-800">
+                                                                        <tr>
+                                                                            <th scope="col" className="py-3.5 px-4 text-left text-sm font-semibold text-white">ID</th>
+                                                                            <th scope="col" className="py-3.5 px-4 text-left text-sm font-semibold text-white">Login</th>
+                                                                            <th scope="col" className="py-3.5 px-4 text-left text-sm font-semibold text-white">Email</th>
+                                                                            <th scope="col" className="py-3.5 px-4 text-left text-sm font-semibold text-white">Role</th>
+                                                                            <th scope="col" className="py-3.5 px-4 text-left text-sm font-semibold text-white">Ações</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {wpUsers.map((user) => (
+                                                                            <tr key={user.ID} className="border-b border-gray-700">
+                                                                                <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-300">{user.ID}</td>
+                                                                                <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-300">{user.user_login}</td>
+                                                                                <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-300">{user.user_email}</td>
+                                                                                <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-300">{user.roles}</td>
+                                                                                <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-300">
+                                                                                    <button onClick={() => { setUserToEdit(user); setUserToDelete(null); setIsUserModalOpen(true); }} className="font-medium text-blue-500 hover:underline mr-4" disabled={isUserLoading}>Editar</button>
+                                                                                    <button onClick={() => { setUserToDelete(user); setUserToEdit(null); setIsUserModalOpen(true); }} className="font-medium text-red-500 hover:underline" disabled={isUserLoading}>Deletar</button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
         </>
       )}
 
@@ -317,23 +335,58 @@ const WpDetails = ({ site, vps, onBack }: { site: WpData, vps?: VpsData, onBack:
         <CreateArticleForm site={site} onArticleCreated={handleArticleCreated} onArticleUpdated={handleArticleUpdated} onCancel={() => setIsCreateArticleModalOpen(false)} />
       </Modal>
 
-      {userMgmtView === 'add_user' && (
-        <Modal isOpen={true} onClose={() => setUserMgmtView('user_list')} title={`Adicionar Novo Usuário em ${site.site_url}`}>
-          <AddWpUserForm domain={site.site_url} onSubmit={(params) => startUserAction({ action: 'create-wp-user', params, title: `Criando usuário ${params.username}` })} onCancel={() => setUserMgmtView('user_list')} />
-        </Modal>
-      )}
-
-      {userMgmtView === 'edit_user' && userToEdit && (
-        <Modal isOpen={true} onClose={() => setUserMgmtView('user_list')} title={`Editar Usuário ${userToEdit.user_login} em ${site.site_url}`}>
-          <EditWpUserForm user={userToEdit} domain={site.site_url} onSubmit={(params) => startUserAction({ action: 'update-wp-user', params, title: `Atualizando usuário` })} onCancel={() => setUserMgmtView('user_list')} />
-        </Modal>
-      )}
-
-      {userMgmtView === 'confirm_delete' && userToDelete && (
-        <Modal isOpen={true} onClose={() => setUserMgmtView('user_list')} title={`Confirmar Exclusão de Usuário em ${site.site_url}`}>
-          <DeleteWpUserModal user={userToDelete} onConfirm={(user) => startUserAction({ action: 'delete-wp-user', params: { domain: site.site_url, userId: user.ID }, title: `Deletando usuário ${user.user_login}` })} onCancel={() => setUserMgmtView('user_list')} />
-        </Modal>
-      )}
+      <Modal 
+        isOpen={isUserModalOpen} 
+        onClose={() => setIsUserModalOpen(false)} 
+        title={
+          userToDelete ? `Confirmar Exclusão em ${site.site_url}` :
+          userToEdit ? `Editar Usuário em ${site.site_url}` :
+          `Adicionar Novo Usuário em ${site.site_url}`
+        }
+      >
+        {userToDelete ? (
+          <DeleteWpUserModal 
+            user={userToDelete} 
+            siteDomain={site.site_url}
+            onConfirm={(user) => { 
+              setIsUserModalOpen(false); 
+              startUserAction({ 
+                action: 'delete-wp-user', 
+                params: { domain: site.site_url, userId: user.ID }, 
+                title: `Deletando usuário ${user.user_login}` 
+              }); 
+            }} 
+            onCancel={() => setIsUserModalOpen(false)} 
+          />
+        ) : userToEdit ? (
+          <EditWpUserForm 
+            user={userToEdit} 
+            domain={site.site_url} 
+            onSubmit={(params) => { 
+              setIsUserModalOpen(false); 
+              startUserAction({ 
+                action: 'update-wp-user', 
+                params, 
+                title: `Atualizando usuário` 
+              }); 
+            }} 
+            onCancel={() => setIsUserModalOpen(false)} 
+          />
+        ) : (
+          <AddWpUserForm 
+            domain={site.site_url} 
+            onSubmit={(params) => { 
+              setIsUserModalOpen(false); 
+              startUserAction({ 
+                action: 'create-wp-user', 
+                params, 
+                title: `Criando usuário ${params.username}` 
+              }); 
+            }} 
+            onCancel={() => setIsUserModalOpen(false)} 
+          />
+        )}
+      </Modal>
     </div>
   );
 };

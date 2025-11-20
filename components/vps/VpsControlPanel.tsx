@@ -48,12 +48,23 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
+        setError(null); // Limpar erros antes de tentar buscar novamente
         try {
             const { data, error: invokeError } = await supabase.functions.invoke('get-installed-sites', { body: { vpsId: vps.id } });
-            if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
+            if (invokeError) { // Erro de comunicação com o Supabase
+                throw invokeError;
+            }
+
+            if (data && data.error) { // Erro reportado pela Edge Function
+                throw new Error(data.error);
+            }
+
             setSites(data.sites || []);
+            return true; // Sucesso
         } catch (err: any) {
+            console.error("Erro ao buscar sites:", err);
             setError(`Falha ao buscar sites: ${err.message}`);
+            return false; // Falha
         } finally {
             setSitesLoading(false);
         }
@@ -64,15 +75,32 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
         setError(null);
         try {
           const { data, error: invokeError } = await supabase.functions.invoke('check-wordops-installed', { body: { vpsId: vps.id } });
-          if (invokeError || data?.error) throw invokeError || new Error(JSON.stringify(data.error));
-          if (data.installed) {
-            setWoStatus('installed');
-            fetchSites();
+          
+          if (invokeError) { // Erro de comunicação com o Supabase
+            throw invokeError;
+          }
+
+          if (data && data.error) {
+            setError(`Erro: ${data.error}`); // Exibir erro específico da Edge Function
+            setWoStatus('not-installed');
+            return;
+          }
+
+          if (data && data.installed) {
+            // Se o WordOps estiver instalado, tenta buscar os sites.
+            // Se fetchSites falhar, o woStatus não deve ser 'installed'.
+            const sitesFetchedSuccessfully = await fetchSites(); // <-- Usa o retorno booleano
+            if (sitesFetchedSuccessfully) {
+                setWoStatus('installed');
+            } else {
+                setWoStatus('not-installed'); // Ou um estado de erro mais específico se necessário
+            }
           } else {
             setWoStatus('not-installed');
           }
         } catch (err: any) {
-          setError(err.message);
+          console.error("Erro inesperado em checkWoStatus:", err);
+          setError(`Erro desconhecido ao verificar o status do WordOps: ${err.message}`);
           setWoStatus('not-installed');
         }
     }, [vps.id, fetchSites]);
@@ -202,7 +230,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
 
     const renderMainContent = () => {
         if (woStatus === 'checking' || sitesLoading) return <div className="text-center p-8"><LoadingSpinner /> <p className="mt-4">Verificando servidor...</p></div>;
-        if (error) return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
+        if (error && !error.includes("Falha ao buscar sites")) return <div className="text-center text-red-500 bg-red-900/20 p-4 rounded-md"><strong>Erro:</strong> {error}</div>;
         
         if (woStatus === 'installed') {
             const filteredSites = sites.filter(site => site.toLowerCase().includes(siteSearchTerm.toLowerCase()));
@@ -221,7 +249,20 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                             </div>
                         </div>
                     </div>
-                    {filteredSites.length > 0 ? (
+                    {sitesLoading ? (
+                        <div className="flex items-center gap-2 text-gray-400"><LoadingSpinner /> Carregando sites...</div>
+                    ) : sites.length === 0 && error && error.includes("Falha ao buscar sites") ? (
+                        <div className="text-center py-10 px-4 bg-red-900/20 border-2 border-dashed border-red-700 rounded-lg">
+                            <p className="text-red-400 font-bold">Atenção: WordOps está instalado, mas não foi possível listar os sites.</p>
+                            <p className="text-sm text-red-500 mt-2">Isso pode ocorrer se não houver sites WordPress instalados ou se houver um problema com a configuração do Nginx. Erro: {error}</p>
+                            <p className="text-sm text-gray-500 mt-2">Você pode tentar criar um novo site ou verificar a instalação do WordOps na VPS.</p>
+                        </div>
+                    ) : sites.length === 0 ? (
+                        <div className="text-center py-10 px-4 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg">
+                            <p className="text-gray-400">Nenhum site WordPress instalado nesta VPS.</p>
+                            <p className="text-sm text-gray-500 mt-2">Use o botão "Instalar Site WordPress" para começar.</p>
+                        </div>
+                    ) : (
                         viewMode === 'grid' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {filteredSites.map(site => {
@@ -260,11 +301,6 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                                 })}
                             </div>
                         )
-                    ) : (
-                        <div className="text-center py-10 px-4 bg-gray-800 border-2 border-dashed border-gray-700 rounded-lg">
-                            <p className="text-gray-400">Nenhum site WordPress instalado nesta VPS.</p>
-                            <p className="text-sm text-gray-500 mt-2">Use o botão "Instalar Site WordPress" para começar.</p>
-                        </div>
                     )}
                 </div>
             );
