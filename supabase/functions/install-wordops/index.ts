@@ -34,7 +34,13 @@ serve(async (req) => {
 
     const escapedUsername = woUsername.replace(/'/g, "'\\''");
     const escapedEmail = woEmail.replace(/'/g, "'\\''");
-    const command = `echo "[user]\n    name = '${escapedUsername}'\n    email = '${escapedEmail}'" > ~/.gitconfig && wget -qO wo wops.cc && sudo bash wo --force && sudo wo stack install`;
+    // FIX: Replaced old, failing wops.cc installer with a robust, manual repository setup.
+    const command = `sudo apt-get update -y && sudo apt-get install -y curl gnupg ca-certificates && \
+wget -qO - https://repo.wordops.net/wopkgs.key | sudo gpg --dearmor -o /usr/share/keyrings/wordops.gpg && \
+echo "deb [signed-by=/usr/share/keyrings/wordops.gpg] https://repo.wordops.net/debian/ bookworm main" | sudo tee /etc/apt/sources.list.d/wordops.list > /dev/null && \
+sudo apt-get update -y && \
+echo "[user]\n    name = '${escapedUsername}'\n    email = '${escapedEmail}'" > ~/.gitconfig && \
+sudo apt-get install -y wordops && sudo wo stack install --force`;
 
     const response = await fetch(`${sshServiceUrl}/execute`, {
       method: 'POST',

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../src/supabaseClient';
 import { VpsData } from '../VpsCard';
 import Modal from '../Modal';
+import InputField from '../InputField';
 import {
     ArrowLeftIcon,
     CheckCircleIcon,
@@ -24,6 +25,29 @@ import DeleteSiteModal from './modals/DeleteSiteModal';
 import DeleteVpsModal from './modals/DeleteVpsModal';
 import { WpData } from '../WpCard';
 
+// Moved WoInstallModal outside of VpsControlPanel to prevent re-rendering and focus loss
+const WoInstallModal = ({ isOpen, onClose, onConfirm, woName, setWoName, woEmail, setWoEmail }) => {
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onConfirm(woName, woEmail);
+    };
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Instalar WordOps">
+            <form onSubmit={handleSubmit}>
+                <p className="text-gray-400 mb-4">O WordOps precisa de um nome de usuário e e-mail para a configuração inicial do Git no servidor.</p>
+                <InputField label="Nome de Usuário" id="wo-name" type="text" value={woName} onChange={(e) => setWoName(e.target.value)} required />
+                <InputField label="E-mail" id="wo-email" type="email" value={woEmail} onChange={(e) => setWoEmail(e.target.value)} required />
+                <div className="flex justify-end items-center gap-4 mt-6">
+                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">Cancelar</button>
+                    <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                        Confirmar e Instalar
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
 const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSites = [] }) => {
     const [woStatus, setWoStatus] = useState<'checking' | 'installed' | 'not-installed'>('checking');
     const [sites, setSites] = useState<string[]>([]);
@@ -43,6 +67,12 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     const [isDeleteVpsModalOpen, setIsDeleteVpsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [siteToEdit, setSiteToEdit] = useState<WpData | null>(null);
+
+    // New states for WordOps Install Modal
+    const [isWoInstallModalOpen, setIsWoInstallModalOpen] = useState(false);
+    const [woName, setWoName] = useState('WordOps'); // Default name
+    const [woEmail, setWoEmail] = useState('hello@example.com'); // Default email
+
 
     const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").replace(/\/$/, "");
 
@@ -311,7 +341,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                 <div className="max-w-md mx-auto mt-10">
                     <ActionCard 
                         title="Instalar WordOps" 
-                        onClick={() => { if(window.confirm('Isso iniciará a instalação do WordOps. Pode levar vários minutos. Continuar?')) startAction({ action: 'install-wordops', params: {}, title: 'Instalando WordOps' })}} 
+                        onClick={() => setIsWoInstallModalOpen(true)}
                         loading={isJobRunning} 
                     />
                 </div>
@@ -349,11 +379,24 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
             )}
             
             {renderMainContent()}
+            
+            <WoInstallModal 
+                isOpen={isWoInstallModalOpen}
+                onClose={() => setIsWoInstallModalOpen(false)}
+                onConfirm={(name, email) => {
+                    setIsWoInstallModalOpen(false);
+                    startAction({ action: 'install-wordops', params: { username: name, email: email }, title: 'Instalando WordOps' });
+                }}
+                woName={woName}
+                setWoName={setWoName}
+                woEmail={woEmail}
+                setWoEmail={setWoEmail}
+            />
 
             <Modal isOpen={modalState.isOpen && modalState.type === 'create-site'} onClose={() => setModalState({ type: '', isOpen: false, data: null })} title="Criar Novo Site WordPress"><CreateSiteForm onSubmit={(params) => startAction({ action: 'create-wordpress-site', params, title: `Criando site ${params.domain}` })} onCancel={() => setModalState({ type: '', isOpen: false, data: null })} /></Modal>
             <Modal isOpen={modalState.isOpen && modalState.type === 'manage-wp-users'} onClose={() => setModalState({ type: '', isOpen: false, data: null })} title={`Gerenciando Usuários de ${currentUserDomain}`}>{renderUserManagementContent()}</Modal>
             {siteToDelete && <DeleteSiteModal site={siteToDelete} onConfirm={(site) => startAction({ action: 'delete-wordpress-site', params: { domain: site }, title: `Deletando site ${site}` })} onCancel={() => setSiteToDelete(null)} />}
-            {isDeleteVpsModalOpen && <DeleteVpsModal onConfirm={handleDeleteVps} onCancel={() => setIsDeleteVpsModalOpen(false)} />}
+            {isDeleteVpsModalOpen && <DeleteVpsModal onConfirm={handleDeleteVps} onCancel={() => setIsDeleteVpsModalOpen(false)} vpsName={vps.name} />}
             {siteToEdit && <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Editar Site WordPress"><EditWpSiteForm site={siteToEdit} onWpSiteUpdated={handleWpSiteUpdated} onCancel={() => setIsEditModalOpen(false)} /></Modal>}
         </div>
     );

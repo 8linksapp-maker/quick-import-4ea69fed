@@ -19,7 +19,7 @@ serve(async (req) => {
     }
 
     // Basic security checks
-    if (!logFileName.startsWith('wo-action-') || logFileName.includes('/') || !pidFileName.startsWith('wo-action-') || pidFileName.includes('/')) {
+    if ((!logFileName.startsWith('wo-action-') && !logFileName.startsWith('wo-install-')) || logFileName.includes('/') || (!pidFileName.startsWith('wo-action-') && !pidFileName.startsWith('wo-install-')) || pidFileName.includes('/')) {
       throw new Error('Invalid file names.');
     }
 

@@ -12,7 +12,13 @@ import BlogHousePage from './pages/BlogHousePage'; // Import the new page
 import VpsDetailsPage from './pages/VpsDetailsPage';
 
 import AdminLayout from './pages/admin/AdminLayout';
-// ... (rest of admin imports)
+import DashboardPage from './pages/admin/DashboardPage';
+import ManageCoursesPage from './pages/admin/ManageCoursesPage';
+import ManageUsersPage from './pages/admin/ManageUsersPage';
+import ManagePromptsPage from './pages/admin/ManagePromptsPage';
+import ManageApisPage from './pages/admin/ManageApisPage';
+import EditMainPage from './pages/admin/EditMainPage';
+import CourseContentEditorPage from './pages/admin/CourseContentEditorPage';
 
 import ProtectedRoute from './src/ProtectedRoute';
 import GuestRoute from './src/GuestRoute';
@@ -60,7 +66,48 @@ const router = createBrowserRouter([
             },
         ],
     },
-    // ... (rest of the routes)
+    {
+        path: '/admin',
+        element: (
+            <ProtectedRoute>
+                <AdminLayout />
+            </ProtectedRoute>
+        ),
+        children: [
+            {
+                path: '',
+                element: <DashboardPage />,
+            },
+            {
+                path: 'dashboard',
+                element: <DashboardPage />,
+            },
+            {
+                path: 'manage-users',
+                element: <ManageUsersPage />,
+            },
+            {
+                path: 'manage-courses',
+                element: <ManageCoursesPage />,
+            },
+            {
+                path: 'editor/curso/:courseId',
+                element: <CourseContentEditorPage />,
+            },
+            {
+                path: 'manage-prompts',
+                element: <ManagePromptsPage />,
+            },
+            {
+                path: 'manage-apis',
+                element: <ManageApisPage />,
+            },
+            {
+                path: 'edit-main-page',
+                element: <EditMainPage />,
+            },
+        ],
+    },
 ]);
 
 const Router: React.FC = () => {

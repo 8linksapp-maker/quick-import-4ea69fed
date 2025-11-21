@@ -4,6 +4,7 @@ import VpsCard, { VpsData } from '../VpsCard';
 import Modal from '../Modal';
 import { SearchIcon } from '../Icons';
 import EditVpsForm from '../EditVpsForm';
+import DeleteVpsModal from '../vps/modals/DeleteVpsModal';
 
 interface VpsListTabProps {
   onVpsSelect: (vps: VpsData) => void;
@@ -17,6 +18,8 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ onVpsSelect, refetchTrigger }) 
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [vpsToEdit, setVpsToEdit] = useState<VpsData | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [vpsToDelete, setVpsToDelete] = useState<VpsData | null>(null);
 
   const fetchVpsList = useCallback(async () => {
     setLoading(true);
@@ -38,22 +41,27 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ onVpsSelect, refetchTrigger }) 
 
   const handleVpsUpdated = () => { fetchVpsList(); setIsEditModalOpen(false); setVpsToEdit(null); };
 
-  const handleEditVps = (e: React.MouseEvent, vps: VpsData) => {
-    e.stopPropagation();
+  const handleEditVps = (vps: VpsData) => {
     setVpsToEdit(vps);
     setIsEditModalOpen(true);
   };
 
-  const handleDeleteVps = async (e: React.MouseEvent, vpsId: number) => {
-    e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja deletar este VPS?')) {
-      try {
-        const { error } = await supabase.functions.invoke('delete-vps-credentials', { body: { id: vpsId } });
-        if (error) throw error;
-        fetchVpsList();
-      } catch (err: any) {
-        alert(`Falha ao deletar o VPS: ${err.message}`);
-      }
+  const handleDeleteVps = (vps: VpsData) => {
+    setVpsToDelete(vps);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!vpsToDelete) return;
+    try {
+      const { error } = await supabase.functions.invoke('delete-vps-credentials', { body: { id: vpsToDelete.id } });
+      if (error) throw error;
+      fetchVpsList();
+    } catch (err: any) {
+      alert(`Falha ao deletar o VPS: ${err.message}`);
+    } finally {
+      setIsDeleteModalOpen(false);
+      setVpsToDelete(null);
     }
   };
 
@@ -72,7 +80,7 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ onVpsSelect, refetchTrigger }) 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredVps.map(vps => (
             <div key={vps.id} onClick={() => onVpsSelect(vps)}>
-                <VpsCard vps={vps} onDelete={(e) => handleDeleteVps(e, vps.id)} onEdit={(e) => handleEditVps(e, vps)} />
+                <VpsCard vps={vps} onDelete={() => handleDeleteVps(vps)} onEdit={() => handleEditVps(vps)} />
             </div>
           ))}
         </div>
@@ -81,6 +89,14 @@ const VpsListTab: React.FC<VpsListTabProps> = ({ onVpsSelect, refetchTrigger }) 
         <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setVpsToEdit(null); }} title="Editar VPS">
             <EditVpsForm vps={vpsToEdit} onVpsUpdated={handleVpsUpdated} onCancel={() => { setIsEditModalOpen(false); setVpsToEdit(null); }} />
         </Modal>
+      )}
+      {vpsToDelete && (
+        <DeleteVpsModal
+            isOpen={isDeleteModalOpen}
+            onClose={() => setIsDeleteModalOpen(false)}
+            onConfirm={handleConfirmDelete}
+            vpsHost={vpsToDelete.host}
+        />
       )}
     </>
   );
