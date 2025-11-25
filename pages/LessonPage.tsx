@@ -290,7 +290,7 @@ const LessonPage: React.FC = () => {
             if (modulesError) { console.error(modulesError); setLoading(false); return; }
 
             const moduleIds = modulesData.map(m => m.id);
-            const { data: lessonsData, error: lessonsError } = await supabase.from('lessons').select('*, description').in('module_id', moduleIds).order('order');
+            const { data: lessonsData, error: lessonsError } = await supabase.from('lessons').select('*, description, thumbnail_url, duration_seconds').in('module_id', moduleIds).order('order');
             if (lessonsError) { console.error(lessonsError); setLoading(false); return; }
 
             const lessonIds = lessonsData.map(l => l.id);
@@ -304,15 +304,25 @@ const LessonPage: React.FC = () => {
 
             const nestedModules: AppModule[] = await Promise.all(modulesData.map(async (module) => {
                 const lessonPromises = (lessonsData || []).filter(l => l.module_id === module.id).map(async (l) => {
-                    const details = await getVideoDetails(l.video_url);
-                    const durationInMinutes = details.duration ? Math.round(details.duration / 60) : 1;
+                    let duration = l.duration_seconds;
+                    let thumbnailUrl = l.thumbnail_url;
+
+                    // Fallback for older videos that don't have the new fields
+                    if (!duration || !thumbnailUrl) {
+                        const details = await getVideoDetails(l.video_url);
+                        duration = duration ?? details.duration;
+                        thumbnailUrl = thumbnailUrl ?? details.thumbnailUrl;
+                    }
+
+                    const durationInMinutes = duration ? Math.round(duration / 60) : 1;
                     const durationString = `${durationInMinutes > 0 ? durationInMinutes : 1}m`;
+                    
                     return {
                         id: l.id.toString(),
                         title: l.title,
                         duration: durationString,
                         completed: completedLessonIds.has(l.id),
-                        thumbnailUrl: details.thumbnailUrl,
+                        thumbnailUrl: thumbnailUrl || 'https://placehold.co/128x72.png?text=...',
                         description: l.description || '',
                         videoUrl: l.video_url,
                     };

@@ -50,21 +50,27 @@ serve(async (req) => {
       forcePathStyle: true,
     });
 
+    const cleanedPublicUrlBase = b2Creds.publicUrlBase.trim().replace(/.+$/, '');
+    const cleanedBucketName = b2Creds.bucketName.trim().replace(/^.+|.+$|/g, '');
+
     const command = new ListObjectsV2Command({
-      Bucket: b2Creds.bucketName,
+      Bucket: cleanedBucketName,
       MaxKeys: 50,
       ContinuationToken: continuationToken,
     });
 
     const response = await s3Client.send(command);
 
+    const cleanedPublicUrlBase = b2Creds.publicUrlBase.trim().replace(/\/+$/, '');
+    const cleanedBucketName = b2Creds.bucketName.trim().replace(/^\/+|\/+$/g, '');
+    
     const videoFiles = (response.Contents || [])
-      .filter(file => file.Key && isVideo(file.Key))
+      .filter(file => file.Key && isVideo(file.key))
       .map(file => ({
-        key: file.Key,
-        size: file.Size,
-        lastModified: file.LastModified,
-        url: `${b2Creds.publicUrlBase}/${b2Creds.bucketName}/${file.Key}`
+        key: file.key,
+        size: file.size,
+        lastModified: file.lastModified,
+        url: `${cleanedPublicUrlBase}/${cleanedBucketName}/${file.key}`
       }));
 
     return new Response(JSON.stringify({

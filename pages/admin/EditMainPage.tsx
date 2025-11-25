@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../src/supabaseClient';
+import LibraryModal from '../../components/admin/LibraryModal';
 
 interface Course {
     id: string;
     title: string;
+}
+
+interface B2File {
+    key: string;
+    url: string;
 }
 
 const EditMainPage: React.FC = () => {
@@ -16,6 +22,7 @@ const EditMainPage: React.FC = () => {
     const [courseOrder, setCourseOrder] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -74,6 +81,10 @@ const EditMainPage: React.FC = () => {
         }
     };
 
+    const handleSelectVideoFromLibrary = (file: B2File) => {
+        setHeroVideoUrl(file.url);
+    };
+
     const moveCourse = (index: number, direction: 'up' | 'down') => {
         const newOrder = [...courseOrder];
         const newIndex = direction === 'up' ? index - 1 : index + 1;
@@ -95,6 +106,11 @@ const EditMainPage: React.FC = () => {
 
     return (
         <div>
+            <LibraryModal
+                isOpen={isLibraryModalOpen}
+                onClose={() => setIsLibraryModalOpen(false)}
+                onFileSelect={handleSelectVideoFromLibrary}
+            />
             <h2 className="text-2xl md:text-3xl font-bold mb-6">Editar Página Principal</h2>
 
             <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg p-6 md:p-8 mb-8">
@@ -132,6 +148,13 @@ const EditMainPage: React.FC = () => {
                             placeholder="https://..."
                             className="w-full bg-black/20 border border-white/20 rounded-md py-2 px-4 text-white placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition"
                         />
+                        <button 
+                            type="button"
+                            onClick={() => setIsLibraryModalOpen(true)}
+                            className="mt-2 w-full sm:w-auto bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md transition-colors"
+                        >
+                            Selecionar da Biblioteca
+                        </button>
                     </div>
                     <div>
                         <label htmlFor="watchLink" className="block text-sm font-medium text-gray-300 mb-2">Link do Botão "Assistir"</label>

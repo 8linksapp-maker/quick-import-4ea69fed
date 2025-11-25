@@ -148,6 +148,9 @@ const ManageApisPage: React.FC = () => {
                                 <option value="ChatGPT" disabled={apis.some(api => api.name === 'ChatGPT')}>
                                     ChatGPT
                                 </option>
+                                <option value="Backblaze B2" disabled={apis.some(api => api.name === 'Backblaze B2')}>
+                                    Backblaze B2
+                                </option>
                             </select>
                         </div>
 
@@ -183,6 +186,42 @@ const ManageApisPage: React.FC = () => {
                             </div>
                         )}
 
+                        {selectedApi === 'Backblaze B2' && (
+                            <div>
+                                <InputField
+                                    label="B2 Key ID"
+                                    value={apiData.keyId || ''}
+                                    onChange={(e) => setApiData({ ...apiData, keyId: e.target.value })}
+                                />
+                                <InputField
+                                    label="B2 Application Key"
+                                    type="password"
+                                    value={apiData.applicationKey || ''}
+                                    onChange={(e) => setApiData({ ...apiData, applicationKey: e.target.value })}
+                                />
+                                <InputField
+                                    label="B2 Endpoint (ex: s3.us-west-004.backblazeb2.com)"
+                                    value={apiData.endpoint || ''}
+                                    onChange={(e) => setApiData({ ...apiData, endpoint: e.target.value })}
+                                />
+                                <InputField
+                                    label="B2 Bucket Name"
+                                    value={apiData.bucketName || ''}
+                                    onChange={(e) => setApiData({ ...apiData, bucketName: e.target.value })}
+                                />
+                                <InputField
+                                    label="B2 Public URL Base (ex: https://f004.backblazeb2.com/file)"
+                                    value={apiData.publicUrlBase || ''}
+                                    onChange={(e) => setApiData({ ...apiData, publicUrlBase: e.target.value })}
+                                />
+                                <InputField
+                                    label="B2 Region (ex: us-west-004)"
+                                    value={apiData.region || ''}
+                                    onChange={(e) => setApiData({ ...apiData, region: e.target.value })}
+                                />
+                            </div>
+                        )}
+
                         <div className="flex justify-end mt-6">
                             <button onClick={closeModal} className="mr-4 px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-700 transition-colors">Cancelar</button>
                             <button onClick={handleSave} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 transition-colors">Salvar</button>
@@ -190,6 +229,7 @@ const ManageApisPage: React.FC = () => {
                     </div>
                 </Modal>
             )}
+
         </div>
     );
 };

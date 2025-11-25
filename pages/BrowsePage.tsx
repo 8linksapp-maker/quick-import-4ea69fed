@@ -199,11 +199,13 @@ const BrowsePage: React.FC = () => {
                 }
 
                 if (config && coursesData) {
-                    setHeroCourse({
+                    const heroData = {
                         id: '', title: config.hero_title || '', description: config.hero_description || '', heroUrl: config.hero_video_url || '', posterUrl: '', instructor: '', relevance: '', duration: '', totalLessons: 0, level: '', tags: [], year: 0, ageRating: '', seasons: 0, cast: [], genres: [], tagsDetail: [], episodes: {}, modules: [],
                         heroWatchButtonLink: config.hero_watch_button_link,
                         heroInfoButtonLink: config.hero_info_button_link,
-                    });
+                    };
+                    console.log("DEBUG: Hero Course Data being set:", heroData);
+                    setHeroCourse(heroData);
 
                     const generatedCarousels = coursesData.map(course => {
                         const courseModules = (modulesData || []).filter(m => m.course_id === course.id);

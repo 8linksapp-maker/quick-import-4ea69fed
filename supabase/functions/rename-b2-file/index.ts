@@ -54,25 +54,26 @@ serve(async (req) => {
         forcePathStyle: true,
     });
 
-    const bucketName = b2Creds.bucketName;
+    const cleanedPublicUrlBase = b2Creds.publicUrlBase.trim().replace(/\/+$/, '');
+    const cleanedBucketName = b2Creds.bucketName.trim().replace(/^\/+|\/+$/g, '');
 
     // 1. Copy the object to the new key
     const copyCommand = new CopyObjectCommand({
-      Bucket: bucketName,
-      CopySource: `${bucketName}/${encodeURIComponent(sourceKey)}`,
+      Bucket: cleanedBucketName,
+      CopySource: `${cleanedBucketName}/${encodeURIComponent(sourceKey)}`,
       Key: destinationKey,
     });
     await s3Client.send(copyCommand);
 
     // 2. Delete the original object
     const deleteCommand = new DeleteObjectCommand({
-      Bucket: bucketName,
+      Bucket: cleanedBucketName,
       Key: sourceKey,
     });
     await s3Client.send(deleteCommand);
 
     // 3. Return the new URL
-    const newUrl = `${b2Creds.publicUrlBase}/${bucketName}/${destinationKey}`;
+    const newUrl = `${cleanedPublicUrlBase}/${cleanedBucketName}/${destinationKey}`;
 
     return new Response(JSON.stringify({
       message: 'File renamed successfully.',
