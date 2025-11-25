@@ -81,9 +81,9 @@ const getCommand = (action, params) => {
     case 'delete-wordpress-site':
       return `sudo wo site delete ${domain} --force`;
     case 'create-wp-user':
-        return `wp user create ${username} ${email} --role=${role} --user_pass='${escapedPass}' --allow-root`;
+        return `wp user create ${username} ${email} --role=${role} --user_pass='${escapedPass}' --path=/var/www/${domain}/htdocs --allow-root`;
     case 'delete-wp-user':
-        return `wp user delete ${userId} --yes --allow-root`;
+        return `wp user delete ${userId} --yes --path=/var/www/${domain}/htdocs --allow-root`;
     case 'update-wp-user': {
         const userIdentifier = userLogin || userId;
         if (!userIdentifier) throw new Error('No user identifier (userLogin or userId) provided for update-wp-user.');
@@ -96,7 +96,7 @@ const getCommand = (action, params) => {
         if (!updateFlags) throw new Error('No update parameters provided for update-wp-user.');
         
         const debugEcho = `echo "DEBUG: Updating user identifier: ${userIdentifier}, Role: ${role}, Flags: ${updateFlags.trim()}"`;
-        return `${debugEcho} && wp user update ${userIdentifier}${updateFlags} --allow-root`;
+        return `${debugEcho} && wp user update ${userIdentifier}${updateFlags} --path=/var/www/${domain}/htdocs --allow-root`;
     }
     default:
       throw new Error(`Unknown action: ${action}`);

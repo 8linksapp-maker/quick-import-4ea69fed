@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
     isOpen: boolean;
@@ -8,19 +9,36 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+
+        // Cleanup on unmount
+        return () => {
+            document.body.style.overflow = 'auto';
+        };
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
-    return (
+    const modalContent = (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-start pt-16 md:pt-24"
+            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center"
             onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
         >
             <div 
-                className="bg-[#181818] rounded-lg shadow-xl w-full max-w-2xl m-4 animate-fade-in-down"
+                className="bg-[#181818] rounded-lg shadow-xl w-full max-w-2xl m-4"
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
             >
                 <div className="flex justify-between items-center p-5 border-b border-gray-700">
-                    <h3 className="text-xl font-bold text-white">{title}</h3>
+                    <h3 id="modal-title" className="text-xl font-bold text-white">{title}</h3>
                     <button 
                         onClick={onClose} 
                         className="text-gray-400 hover:text-white text-3xl leading-none font-semibold outline-none focus:outline-none"
@@ -34,6 +52,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             </div>
         </div>
     );
+
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) {
+        console.error("The element with id 'modal-root' was not found in the DOM.");
+        return null;
+    }
+
+    return createPortal(modalContent, modalRoot);
 };
 
 export default Modal;
