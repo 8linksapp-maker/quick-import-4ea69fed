@@ -19,7 +19,14 @@ serve(async (req) => {
     const { job, prompts, openaiApiKey } = await getAncillaryData(supabaseAdmin, job_id);
     const { outlines, generated_title, generated_introduction, generated_body, last_written_content } = job;
     
+    console.log("--- DEBUG: Raw Outlines from DB ---");
+    console.log(outlines);
+
     const outlineHeadings = outlines.split('\n').filter(line => line.trim().match(/^H\d/i));
+    
+    console.log("--- DEBUG: Parsed Outline Headings Array ---");
+    console.log(outlineHeadings);
+
     if (outlineHeadings.length === 0) throw new Error("No valid outlines found in job.");
 
     const currentOutlineHeading = outlineHeadings[outline_index];

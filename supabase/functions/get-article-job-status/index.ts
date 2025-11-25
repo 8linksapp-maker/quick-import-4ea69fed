@@ -45,7 +45,7 @@ serve(async (req) => {
     // 4. Fetch jobs from the article_jobs table
     const { data: jobs, error: selectError } = await supabase
       .from('article_jobs')
-      .select('id, created_at, status, generated_title, error_message')
+      .select('id, created_at, status, generated_title, error_message, final_post_id')
       .eq('site_id', site_id)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
