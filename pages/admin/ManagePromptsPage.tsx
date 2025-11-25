@@ -72,20 +72,15 @@ const PromptForm = ({ prompt, onPromptSaved, onCancel }) => {
 
   return (
     <form onSubmit={handleSave}>
-      <div className="mb-4">
-        <label htmlFor="promptType" className="block text-sm font-medium text-gray-300 mb-2">Tipo de Prompt</label>
-        <select 
-          id="promptType" 
-          value={promptType} 
-          onChange={(e) => setPromptType(e.target.value)} 
-          className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
-          required
-        >
-          <option value="" disabled>Selecione um tipo</option>
-          <option value="informational">Informacional</option>
-          <option value="commercial">Comercial</option>
-        </select>
-      </div>
+      <InputField
+        label="Tipo de Prompt"
+        id="promptType"
+        type="text"
+        value={promptType}
+        onChange={(e) => setPromptType(e.target.value)}
+        required
+        placeholder="Ex: generate_title, informational"
+      />
       <div className="mt-4">
         <label htmlFor="promptText" className="block text-sm font-medium text-gray-300 mb-2">Texto do Prompt</label>
         <textarea id="promptText" value={promptText} onChange={(e) => setPromptText(e.target.value)} rows={12} className="w-full bg-gray-900 border border-gray-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required />

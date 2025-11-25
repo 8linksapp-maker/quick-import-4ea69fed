@@ -32,7 +32,7 @@ serve(async (req) => {
     const sshServiceUrl = Deno.env.get('VERCEL_SSH_SERVICE_URL');
     if (!sshServiceUrl) throw new Error('VERCEL_SSH_SERVICE_URL is not set.');
 
-    const command = 'ls /etc/nginx/sites-available/';
+    const command = '/usr/local/bin/wo site list';
     console.log(`[DEBUG] Executing command: "${command}"`);
 
     const response = await fetch(`${sshServiceUrl}/execute`, {

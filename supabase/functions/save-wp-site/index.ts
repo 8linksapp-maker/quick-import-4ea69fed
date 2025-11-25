@@ -26,16 +26,27 @@ serve(async (req) => {
       throw new Error('User not authenticated.');
     }
 
-    // 1. Validate credentials by trying to fetch user data from WordPress REST API
+    // 1. Normalize URL and validate credentials by trying to fetch user data from WordPress REST API
+    let normalizedUrl = site_url;
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
     const authString = btoa(`${wp_username}:${application_password}`);
-    const wpApiUrl = `${site_url.replace(/\/?$/, '')}/wp-json/wp/v2/users/me`; // Ensure no trailing slash
+    const wpApiUrl = `${normalizedUrl.replace(/\/?$/, '')}/wp-json/wp/v2/users/me`; // Ensure no trailing slash
 
-    const wpResponse = await fetch(wpApiUrl, {
-      headers: {
-        'Authorization': `Basic ${authString}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    let wpResponse;
+    try {
+      wpResponse = await fetch(wpApiUrl, {
+        headers: {
+          'Authorization': `Basic ${authString}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (networkError) {
+      console.error("Network error fetching WP API:", networkError);
+      throw new Error(`Falha ao conectar ao site. Verifique se a URL está correta e acessível. (${networkError.message})`);
+    }
+
 
     if (!wpResponse.ok) {
       const errorText = await wpResponse.text();
@@ -50,7 +61,7 @@ serve(async (req) => {
       .from('wp_sites')
       .insert({
         user_id: user.id,
-        site_url,
+        site_url: normalizedUrl, // Use the normalized URL
         wp_username,
         encrypted_application_password,
       })

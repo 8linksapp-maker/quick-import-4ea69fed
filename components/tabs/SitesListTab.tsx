@@ -28,6 +28,8 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger, onSiteSelec
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [siteToEdit, setSiteToEdit] = useState<WpData | null>(null);
 
   const fetchAllSites = useCallback(async () => {
     setLoading(true);
@@ -82,6 +84,20 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger, onSiteSelec
   useEffect(() => {
     fetchAllSites();
   }, [fetchAllSites, refetchTrigger]);
+
+  const handleWpSiteUpdated = () => {
+    setIsEditModalOpen(false);
+    fetchAllSites();
+  };
+
+  const handleEdit = (site: CombinedSiteData) => {
+    if (site.type === 'connected' && site.wpData) {
+      setSiteToEdit(site.wpData);
+      setIsEditModalOpen(true);
+    } else {
+      alert('Apenas sites "Conectados" podem ser editados. Conecte este site para habilitar a edição.');
+    }
+  };
   
   const handleDelete = (site: CombinedSiteData) => {
     if (site.type === 'connected' && site.wpData) {
@@ -139,6 +155,15 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger, onSiteSelec
   return (
     <>
       {renderListView()}
+      {siteToEdit && (
+        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Editando ${siteToEdit.site_url}`}>
+          <EditWpSiteForm 
+            site={siteToEdit} 
+            onWpSiteUpdated={handleWpSiteUpdated} 
+            onCancel={() => setIsEditModalOpen(false)} 
+          />
+        </Modal>
+      )}
     </>
   );
 };

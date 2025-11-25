@@ -20,51 +20,21 @@ const getCommand = (action, params) => {
         EXIT_CODE_FILE=$(mktemp)
         (
             (
-                echo '--- EXECUTANDO A VERSÃO v18 (LOGS DETALHADOS) ---';
+                echo '--- INICIANDO INSTALAÇÃO COMPLETA DO WORDOPS (2 ETAPAS) ---';
                 
-                # Step 1
-                echo "--> INÍCIO: Limpeza de repositórios antigos." && \
-                (sudo sed -i '/opensuse.org/d' /etc/apt/sources.list 2>/dev/null || true) && \
-                (sudo rm -f /etc/apt/sources.list.d/*wordops*.list /etc/apt/sources.list.d/*wo*.list 2>/dev/null || true) && \
-                echo "<-- FIM: Limpeza de repositórios." && \
+                # Etapa 1: Instalar a ferramenta de linha de comando 'wo'
+                echo "--> ETAPA 1: Forçando a instalação limpa da CLI 'wo'...";
+                sudo rm -f /usr/local/bin/wo;
+                sudo git config --global user.name "${escapedUsername}";
+                sudo git config --global user.email "${escapedEmail}";
+                wget -qO wo wops.cc && sudo bash wo --force;
+                echo "<-- ETAPA 1 CONCLUÍDA.";
 
-                # Step 2
-                echo "--> INÍCIO: Update inicial e instalação de dependências." && \
-                sudo apt-get update -y && \
-                sudo apt-get install -y apt-transport-https ca-certificates curl gnupg dnsutils && \
-                echo "<-- FIM: Dependências instaladas." && \
+                # Etapa 2: Instalar a stack de servidor (Nginx, PHP, etc.)
+                echo "--> ETAPA 2: Instalando a stack de servidor (Nginx, PHP, MariaDB)...";
+                sudo wo stack install --force;
+                echo "<-- ETAPA 2 CONCLUÍDA. Instalação completa!";
 
-                # Step 3
-                echo "--> INÍCIO: Download da chave GPG do WordOps." && \
-                wget -qO /tmp/wordops.key https://repo.wordops.net/wopkgs.key && \
-                echo "<-- FIM: Download da chave GPG." && \
-
-                # Step 3b
-                echo "--> INÍCIO: Instalação da chave GPG." && \
-                sudo gpg --dearmor -o /usr/share/keyrings/wordops.gpg /tmp/wordops.key && \
-                echo "<-- FIM: Chave GPG instalada." && \
-
-                # Step 4
-                echo "--> INÍCIO: Adição do repositório oficial do WordOps." && \
-                echo "deb [signed-by=/usr/share/keyrings/wordops.gpg] https://repo.wordops.net/debian/ bookworm main" | sudo tee /etc/apt/sources.list.d/wordops.list > /dev/null && \
-                echo "<-- FIM: Repositório adicionado." && \
-
-                # Step 5
-                echo "--> INÍCIO: Segundo update do apt-cache." && \
-                sudo apt-get update -y && \
-                echo "<-- FIM: Segundo update concluído." && \
-
-                # Step 6
-                echo "--> INÍCIO: Instalação do pacote WordOps e configuração inicial." && \
-                # Use user-provided username and email for initial setup.
-                sudo apt-get install -y wordops && \
-                sudo wo setup --admin-user='${escapedUsername}' --admin-email='${escapedEmail}' --force && \
-                echo "<-- FIM: Pacote WordOps instalado e configurado." && \
-
-                # Step 7
-                echo "--> INÍCIO: Instalação da stack (Nginx, PHP, etc.)." && \
-                sudo wo stack install --force && \
-                echo "<-- FIM: Instalação da stack concluída."
             );
             echo $? > \${EXIT_CODE_FILE}
         ) 2>&1 | tee /tmp/wo-install-$(date +%s).log
@@ -75,7 +45,7 @@ const getCommand = (action, params) => {
       `;
     }
     case 'create-wordpress-site':
-      return `sudo wo site create ${domain} --wp --user=${user} --pass='${escapedPass}' --email=${email} --le && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw reload && echo 'y' | sudo ufw enable`;
+      return `sudo /usr/local/bin/wo site create ${domain} --wp --user=${user} --pass='${escapedPass}' --email=${email} --le && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw reload && echo 'y' | sudo ufw enable`;
     case 'install-ssl-site':
       return `echo 'y' | sudo wo site update ${domain} --letsencrypt`;
     case 'delete-wordpress-site':
@@ -104,6 +74,7 @@ const getCommand = (action, params) => {
 }
 
 serve(async (req) => {
+  // Last updated: 16:30 PM
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -171,21 +142,51 @@ serve(async (req) => {
     console.log('start-long-action: Received response from SSH service. Status:', sshResponse.status);
 
     if (!sshResponse.ok) {
-        const errorBody = await sshResponse.text();
-        console.error('start-long-action: SSH service responded with non-ok status:', sshResponse.status, errorBody);
-        throw new Error(`SSH service responded with an error (Status: ${sshResponse.status}): ${errorBody}`);
+        const errorBodyText = await sshResponse.text();
+        console.error('start-long-action: SSH service responded with non-ok status:', sshResponse.status, errorBodyText);
+        
+        try {
+            const errorBody = JSON.parse(errorBodyText);
+            
+            // This is the special case for create-wordpress-site: site created, but SSL failed.
+            if (action === 'create-wordpress-site' &&
+                errorBody.stdout && 
+                errorBody.stdout.includes('Successfully created site') && 
+                errorBody.stdout.includes('Aborting SSL certificate issuance')) 
+            {
+                 // Return the body with a 200 status so the client can process it as a 'warning'
+                 return new Response(JSON.stringify(errorBody), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200, 
+                });
+            }
+
+            // This is the special case for install-ssl-site: DNS not pointed
+            if (action === 'install-ssl-site' &&
+                errorBody.stdout &&
+                errorBody.stdout.includes('Aborting SSL certificate issuance'))
+            {
+                // Return the body with a 200 status so the client can process it
+                return new Response(JSON.stringify(errorBody), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200,
+                });
+            }
+        } catch(e) {
+            // It was not a JSON body, so we can't do special handling.
+            // Just rethrow the original error.
+            console.error('start-long-action: Could not parse error body as JSON:', e.message);
+            throw new Error(`SSH service responded with a non-JSON error (Status: ${sshResponse.status}): ${errorBodyText}`);
+        }
+        
+        // If it was JSON but didn't match the special case, rethrow the original error.
+        throw new Error(`SSH service responded with an error (Status: ${sshResponse.status}): ${errorBodyText}`);
     }
 
     const responseBody = await sshResponse.json();
 
-    // Return the full output directly
-    return new Response(JSON.stringify({
-        status: responseBody.exitCode === 0 ? 'completed' : 'failed',
-        stdout: responseBody.stdout,
-        stderr: responseBody.stderr,
-        exitCode: responseBody.exitCode,
-        message: responseBody.message 
-    }), {
+    // Return the full output directly to the client.
+    return new Response(JSON.stringify(responseBody), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
     });

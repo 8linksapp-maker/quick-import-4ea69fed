@@ -11,6 +11,9 @@ import {
     SearchIcon,
     GridIcon,
     ListIcon,
+    ServerIcon,
+    AddIcon,
+    TrashIcon,
 } from '../Icons';
 import JobStatus from './JobStatus';
 import ActionCard from './ActionCard';
@@ -24,6 +27,7 @@ import DeleteWpUserModal from './modals/DeleteWpUserModal';
 import DeleteSiteModal from './modals/DeleteSiteModal';
 import DeleteVpsModal from './modals/DeleteVpsModal';
 import { WpData } from '../WpCard';
+import DashboardCard from './DashboardCard';
 
 // Moved WoInstallModal outside of VpsControlPanel to prevent re-rendering and focus loss
 const WoInstallModal = ({ isOpen, onClose, onConfirm, woName, setWoName, woEmail, setWoEmail }) => {
@@ -150,8 +154,9 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
         let finalTitle: string, finalError, finalWarning;
 
         if (job.action === 'install-ssl-site' && finalLog.includes("Aborting SSL certificate issuance")) {
-            finalStatus = 'completed'; finalTitle = 'Instalação de SSL com Aviso';
-            finalWarning = 'A instalação do SSL falhou porque o DNS não aponta para o servidor. Corrija o DNS e tente novamente.';
+            finalStatus = 'failed';
+            finalTitle = 'Falha ao Instalar SSL';
+            finalError = 'A instalação do SSL falhou porque o DNS do domínio não aponta para o servidor. Corrija o DNS e tente novamente.';
         } else if (job.action === 'create-wordpress-site' && finalLog.includes("Aborting SSL certificate issuance")) {
             finalStatus = 'completed'; finalTitle = 'Site Criado com Aviso';
             finalWarning = 'Site criado, mas o SSL falhou. Aponte o DNS do domínio para o IP do servidor e instale o SSL pelo painel.';
@@ -193,6 +198,7 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     }, [activeJob, pollJobStatus]);
 
     const startAction = async ({ action, params, title }) => {
+        console.log(`[DEBUG] startAction triggered for action: ${action}`, { params });
         setModalState({ type: '', isOpen: false, data: null });
         setSiteToDelete(null);
         setIsDeleteVpsModalOpen(false);
@@ -200,8 +206,30 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
         setActiveJob({ action, title, status: 'running' });
         try {
             const { data, error } = await supabase.functions.invoke('start-long-action', { body: { vpsId: vps.id, action, params }});
-            if (error || data.error) throw error || new Error(data.error);
-            setActiveJob(prev => prev ? { ...prev, logFileName: data.logFileName, pidFileName: data.pidFileName } : null);
+            
+            console.log("--- DEBUG [delete-site]: Received from start-long-action ---");
+            console.log("data:", data);
+            console.log("error:", error);
+
+            if (error) throw error;
+
+            // Check if the job completed synchronously
+            if (data.stdout !== undefined || data.stderr !== undefined) {
+                console.log("Job completed synchronously:", data);
+                handleJobCompletion({ 
+                    action, 
+                    title, 
+                    logContent: data.stdout + "\n" + data.stderr 
+                });
+            } 
+            // Handle asynchronous job
+            else if (data.logFileName && data.pidFileName) {
+                setActiveJob(prev => prev ? { ...prev, logFileName: data.logFileName, pidFileName: data.pidFileName } : null);
+            } 
+            // Handle unexpected response
+            else {
+                throw new Error("Resposta inesperada da função de longa duração.");
+            }
         } catch (err: any) {
             setActiveJob({ action, title, status: 'failed', error: err.message });
         }
@@ -365,9 +393,30 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
             </div>
 
             {woStatus === 'installed' && (
-                <div className="flex flex-col md:flex-row items-center justify-end gap-4 mb-8">
-                    <button onClick={() => setModalState({ type: 'create-site', isOpen: true, data: null })} disabled={activeJob?.status === 'running'} className="bg-green-600 text-white py-2 px-5 rounded-lg hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105">Instalar Site WordPress</button>
-                    <button onClick={() => setIsDeleteVpsModalOpen(true)} disabled={activeJob?.status === 'running'} className="bg-red-600 text-white py-2 px-5 rounded-lg hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition duration-200 ease-in-out shadow-lg transform hover:scale-105">Deletar VPS</button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <DashboardCard
+                        icon={<ServerIcon className="w-6 h-6" />}
+                        title="Sites Instalados"
+                        value={sites.length.toString()}
+                        description="Total de sites WordPress nesta VPS."
+                        colorClass="text-blue-400"
+                    />
+                    <DashboardCard
+                        icon={<AddIcon className="w-6 h-6" />}
+                        title="Instalar Site WordPress"
+                        description="Criar um novo site WordPress do zero."
+                        onClick={() => setModalState({ type: 'create-site', isOpen: true, data: null })}
+                        disabled={activeJob?.status === 'running'}
+                        colorClass="text-green-400"
+                    />
+                    <DashboardCard
+                        icon={<TrashIcon className="w-6 h-6" />}
+                        title="Deletar VPS"
+                        description="Remover esta VPS e todas as suas credenciais."
+                        onClick={() => setIsDeleteVpsModalOpen(true)}
+                        disabled={activeJob?.status === 'running'}
+                        colorClass="text-red-400"
+                    />
                 </div>
             )}
 

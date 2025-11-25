@@ -38,20 +38,19 @@ app.post('/execute', (req, res) => {
         conn.exec(command, (err, stream) => {
             if (err) {
                 conn.end();
-                return res.status(500).json({ error: 'SSH stream error: ' + err.message });
+                // Even on stream error, return 200 but with an error message and code
+                return res.status(200).json({ 
+                    error: 'SSH stream error: ' + err.message,
+                    stdout: stdout,
+                    stderr: stderr,
+                    exitCode: 1 
+                });
             }
             stream.on('close', (code) => {
                 conn.end();
-                if (code !== 0) {
-                    return res.status(500).json({ 
-                        error: `Command failed with code ${code}`,
-                        stdout: stdout,
-                        stderr: stderr,
-                        exitCode: code
-                    });
-                }
+                // Always return 200. The client will check the exitCode.
                 res.status(200).json({ 
-                    message: 'Command executed successfully', 
+                    message: code === 0 ? 'Command executed successfully' : 'Command finished with a non-zero exit code.', 
                     stdout: stdout, 
                     stderr: stderr,
                     exitCode: code
@@ -63,7 +62,13 @@ app.post('/execute', (req, res) => {
             });
         });
     }).on('error', (err) => {
-        res.status(500).json({ error: 'SSH connection error: ' + err.message });
+        // Even on connection error, return 200 but with an error message
+        res.status(200).json({ 
+            error: 'SSH connection error: ' + err.message,
+            stdout: '',
+            stderr: err.message,
+            exitCode: 1
+        });
     }).connect({ host, port, username, password, readyTimeout: 20000 });
 });
 
