@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Course, Lesson, Module, HoverCard } from '../components/LoginCard';
-import { PlayIcon } from '../components/Icons';
+import { PlayIcon, InfoIcon } from '../components/Icons';
 import CourseCarousel from '../components/LoginCard';
 import CourseDetailModal from '../components/CourseDetailModal';
 import Footer from '../components/Footer';
@@ -11,7 +11,7 @@ import { getVideoDetails } from '../src/videoUtils';
 
 type SupabaseCourse = { id: number; title: string; description: string; poster_url: string; instructor: string; category: string; created_at: string; };
 type SupabaseModule = { id: number; course_id: number; title: string; thumbnail_url: string; order: number; };
-type SupabaseLesson = { id: number; module_id: number; video_url: string; order: number; title: string; description: string; };
+type SupabaseLesson = { id: number; module_id: number; video_url: string; order: number; title: string; description: string; thumbnail_url?: string; };
 
 const mapModuleToCourseCard = (module: SupabaseModule, parentCourse: SupabaseCourse, lessons: SupabaseLesson[]): Course => {
     const totalLessons = lessons.length;
@@ -135,7 +135,7 @@ const BrowsePage: React.FC = () => {
                 if (modulesError) throw modulesError;
                 setRawModules(modulesData || []);
 
-                const { data: lessonsData, error: lessonsError } = await supabase.from('lessons').select('id, module_id, video_url, order, title, description').order('order');
+                const { data: lessonsData, error: lessonsError } = await supabase.from('lessons').select('id, module_id, video_url, order, title, description, thumbnail_url').order('order');
                 if (lessonsError) throw lessonsError;
                 setRawLessons(lessonsData || []);
 
@@ -327,6 +327,15 @@ const BrowsePage: React.FC = () => {
                 .filter(l => l.module_id === module.id)
                 .sort((a, b) => a.order - b.order)
                 .map(async (lesson) => {
+                    // Prioritize the thumbnail from the database if it exists
+                    let thumbnailUrl = lesson.thumbnail_url;
+
+                    // If not, fetch it from the video service as a fallback
+                    if (!thumbnailUrl) {
+                        const details = await getVideoDetails(lesson.video_url);
+                        thumbnailUrl = details.thumbnailUrl;
+                    }
+                    
                     const details = await getVideoDetails(lesson.video_url);
                     const durationInMinutes = details.duration ? Math.round(details.duration / 60) : 1;
                     const durationString = `${durationInMinutes > 0 ? durationInMinutes : 1}m`;
@@ -338,7 +347,7 @@ const BrowsePage: React.FC = () => {
                         completed: progressInfo ? progressInfo.progress >= 95 : false,
                         progress: progressInfo ? progressInfo.progress : 0,
                         description: lesson.description || '',
-                        thumbnailUrl: details.thumbnailUrl,
+                        thumbnailUrl: thumbnailUrl,
                         videoUrl: lesson.video_url,
                     };
                 });
@@ -451,19 +460,20 @@ const BrowsePage: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent"></div>
                 </div>
                 
-                <div className="relative p-4 -mt-16 md:-mt-24 lg:absolute lg:mt-0 lg:bottom-[20%] lg:left-16 z-10 max-w-lg">
+                <div className="relative p-4 -mt-16 md:-mt-24 lg:absolute lg:mt-0 lg:bottom-[30%] lg:left-16 z-10 max-w-xl">
                     <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold">{heroCourse.title}</h1>
                     <p className="mt-4 text-sm md:text-base lg:text-lg max-w-md">{heroCourse.description}</p>
                     <div className="mt-6 flex items-center space-x-3">
                         {heroCourse.heroWatchButtonLink && (
-                            <Link to={heroCourse.heroWatchButtonLink} className="flex items-center justify-center bg-white text-black font-bold px-6 py-2 rounded hover:bg-gray-200 transition text-lg">
+                            <Link to={heroCourse.heroWatchButtonLink} className="flex items-center justify-center bg-white text-black font-semibold px-6 py-2 rounded hover:bg-gray-200 transition text-2xl">
                                 <PlayIcon isHero />
-                                <span className="ml-2">Assistir</span>
+                                <span className="ml-3">Assistir</span>
                             </Link>
                         )}
                         {heroCourse.heroInfoButtonLink && (
-                            <Link to={heroCourse.heroInfoButtonLink} className="flex items-center justify-center bg-gray-500/70 text-white font-bold px-6 py-2 rounded hover:bg-gray-500/90 transition text-lg">
-                                <span className="ml-2">Mais Informações</span>
+                            <Link to={heroCourse.heroInfoButtonLink} className="flex items-center justify-center bg-gray-500/70 text-white font-semibold px-6 py-2 rounded hover:bg-gray-500/90 transition text-2xl">
+                                <InfoIcon />
+                                <span className="ml-3">Mais Informações</span>
                             </Link>
                         )}
                     </div>

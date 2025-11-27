@@ -13,7 +13,7 @@ interface SupabaseCourse {
     id: number; title: string; description: string; instructor: string; category: string; poster_url: string; created_at: string; kiwify_product_id?: string;
 }
 interface SupabaseModule { id: number; title: string; order: number; }
-interface SupabaseLesson { id: number; module_id: number; title: string; order: number; description: string; video_url: string; }
+interface SupabaseLesson { id: number; module_id: number; title: string; order: number; description: string; video_url: string; thumbnail_url?: string; }
 
 const CourseOverviewPage: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -72,7 +72,15 @@ const CourseOverviewPage: React.FC = () => {
                     const lessonPromises = (lessonsData || [])
                         .filter(lesson => lesson.module_id === module.id)
                         .map(async (lesson) => {
-                            const details = await getVideoDetails(lesson.video_url);
+                            // Prioritize the thumbnail from the database if it exists
+                            let thumbnailUrl = lesson.thumbnail_url;
+                            
+                            // If not, fetch it from the video service as a fallback
+                            if (!thumbnailUrl) {
+                                const details = await getVideoDetails(lesson.video_url);
+                                thumbnailUrl = details.thumbnailUrl;
+                            }
+
                             const progressInfo = lessonProgressMap.get(lesson.id);
                             return {
                                 id: lesson.id.toString(),
@@ -80,7 +88,7 @@ const CourseOverviewPage: React.FC = () => {
                                 duration: '5m', // Placeholder
                                 completed: progressInfo ? progressInfo.progress >= 95 : false,
                                 progress: progressInfo ? progressInfo.progress : 0,
-                                thumbnailUrl: details.thumbnailUrl,
+                                thumbnailUrl: thumbnailUrl,
                                 description: lesson.description || '',
                                 videoUrl: lesson.video_url,
                             };
