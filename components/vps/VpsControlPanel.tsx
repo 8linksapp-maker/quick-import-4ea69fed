@@ -78,7 +78,10 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     const [woEmail, setWoEmail] = useState('hello@example.com'); // Default email
 
 
-    const normalizeUrl = (url: string) => url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").replace(/\/$/, "");
+    const normalizeUrl = (url: string) => {
+        const stripped = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "");
+        return stripped.endsWith('/') ? stripped.slice(0, -1) : stripped;
+    };
 
     const fetchSites = useCallback(async () => {
         setSitesLoading(true);
@@ -216,10 +219,10 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
             // Check if the job completed synchronously
             if (data.stdout !== undefined || data.stderr !== undefined) {
                 console.log("Job completed synchronously:", data);
-                handleJobCompletion({ 
-                    action, 
-                    title, 
-                    logContent: data.stdout + "\n" + data.stderr 
+                handleJobCompletion({
+                    action,
+                    title,
+                    logContent: data.stdout + "\n" + data.stderr
                 });
             } 
             // Handle asynchronous job
