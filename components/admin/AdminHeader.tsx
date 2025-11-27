@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 const AdminHeader: React.FC = () => {
@@ -13,16 +13,16 @@ const AdminHeader: React.FC = () => {
         { path: '/admin/manage-prompts', label: 'Manage Prompts' },
     ];
 
-    const linkClasses = "cursor-pointer transition hover:text-gray-300";
-    const activeLinkClasses = "font-semibold text-white";
+    const linkClasses = "text-sm font-light cursor-pointer transition hover:text-gray-300";
+    const activeLinkClasses = "text-white";
     const inactiveLinkClasses = "text-gray-300";
 
     return (
         <header className='fixed top-0 left-0 right-0 z-40 bg-[#141414]'>
-            <div className="flex items-center justify-between px-4 md:px-16 py-4">
+            <div className="flex items-center justify-between px-4 md:px-16 py-2">
                 <div className="flex items-center space-x-8">
                     <Link to="/admin">
-                        <h1 className="text-red-600 text-3xl font-bold tracking-wider cursor-pointer">NETFLIX ADMIN</h1>
+                        <img src="/logo.svg" alt="SEOFLIX Logo" className="w-auto h-9 cursor-pointer" />
                     </Link>
                     <nav className="hidden md:flex items-center space-x-4">
                         {navLinks.map(link => (

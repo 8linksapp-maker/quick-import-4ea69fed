@@ -273,7 +273,7 @@ const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, courses, onCardC
     
     return (
         <div className="group/carousel relative" onMouseLeave={onMouseLeave}>
-            <h2 className="text-xl md:text-2xl font-bold px-4 md:px-16 mb-3">{title}</h2>
+            <h2 className="text-[1.375rem] md:text-[1.75rem] font-medium text-[#e5e5e5] normal-case px-4 md:px-16 mb-3">{title}</h2>
             <div className="relative">
                 {canScrollLeft && (
                     <button onClick={() => scroll('left')} className="absolute left-0 top-0 bottom-0 z-30 w-16 bg-gradient-to-r from-[#141414] via-[#141414]/80 to-transparent flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 transition-opacity">

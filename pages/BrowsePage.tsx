@@ -127,6 +127,15 @@ const BrowsePage: React.FC = () => {
                 if (configError) throw configError;
                 const config = configData.data;
 
+                // START of new diagnostic code
+                const heroUrlFromConfig = config.hero_video_url || '';
+                console.log("--- DIAGNOSTIC START ---");
+                console.log("Raw heroUrl from config:", heroUrlFromConfig);
+                console.log("Length of heroUrl:", heroUrlFromConfig.length);
+                console.log("Does heroUrl contain '...'?", heroUrlFromConfig.includes('…'));
+                console.log("--- DIAGNOSTIC END ---");
+                // END of new diagnostic code
+
                 const { data: coursesData, error: coursesError } = await supabase.from('courses').select('*');
                 if (coursesError) throw coursesError;
                 setRawCourses(coursesData || []);
@@ -383,7 +392,7 @@ const BrowsePage: React.FC = () => {
 
     useEffect(() => {
         const video = videoRef.current;
-        if (video) {
+        if (video && heroCourse?.heroUrl) {
             const handleTimeUpdate = () => {
                 if (video.currentTime >= 60) {
                     video.pause();
@@ -481,7 +490,7 @@ const BrowsePage: React.FC = () => {
             </section>
             
             <div className={`-mt-2 md:-mt-8 lg:-mt-24 relative z-20`}>
-                <main className="space-y-12 pb-24">
+                <main className="space-y-16 pb-24">
                     {continueWatchingCarousel && (
                         <CourseCarousel
                             key={continueWatchingCarousel.title}

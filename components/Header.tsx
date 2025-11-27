@@ -3,11 +3,6 @@ import { SearchIcon, BellIcon, ChevronDownIcon } from './Icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../src/AuthContext';
 
-type View = 'login' | 'browse' | 'my_courses' | 'course_overview' | 'lesson';
-interface HeaderProps {
-    view: View;
-}
-
 const Header: React.FC<HeaderProps> = ({ view }) => {
     const [isScrolled, setIsScrolled] = useState(false);
     const location = useLocation();
@@ -39,8 +34,8 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
         navigate('/login');
     };
 
-    const linkClasses = "cursor-pointer transition hover:text-gray-300";
-    const activeLinkClasses = "font-semibold text-white";
+    const linkClasses = "text-sm font-light cursor-pointer transition hover:text-gray-300";
+    const activeLinkClasses = "text-white";
     const inactiveLinkClasses = "text-gray-300";
 
     const isLessonView = view === 'lesson';
@@ -77,13 +72,13 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
     if (isLessonView) {
         return (
              <header className="fixed top-0 left-0 right-0 z-40 bg-[#181818] shadow-md">
-                 <div className="flex items-center justify-between px-4 md:px-8 py-3">
+                 <div className="flex items-center justify-between px-4 md:px-8 py-2">
                      <div className="flex items-center space-x-8">
                          <Link to="/">
-                            <h1 className="netflix-logo cursor-pointer">SEO FLIX</h1>
+                            <img src="/logo.svg" alt="SEOFLIX Logo" className="w-auto h-9 cursor-pointer" />
                          </Link>
                          <div className="h-6 w-px bg-gray-700"></div>
-                         <Link to="/" className="text-gray-200 hover:text-white transition">
+                         <Link to="/" className="text-sm font-light text-gray-200 hover:text-white transition">
                             Sair do Player
                          </Link>
                      </div>
@@ -97,10 +92,10 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
 
     return (
         <header className={`fixed top-0 left-0 right-0 z-40 transition-colors duration-300 ${isScrolled || view === 'my_courses' || view === 'course_overview' ? 'bg-[#141414]' : 'bg-gradient-to-b from-black/70 to-transparent'}`}>
-            <div className="flex items-center justify-between px-4 md:px-16 py-4">
+            <div className="flex items-center justify-between px-4 md:px-16 py-2">
                 <div className="flex items-center space-x-8">
                     <Link to="/">
-                                                    <h1 className="netflix-logo cursor-pointer">SEO FLIX</h1>                    </Link>
+                                                    <img src="/logo.svg" alt="SEOFLIX Logo" className="w-auto h-9 cursor-pointer" />                    </Link>
                     <nav className="hidden md:flex items-center space-x-4">
                         <Link to="/" className={`${linkClasses} ${location.pathname === '/' ? activeLinkClasses : inactiveLinkClasses}`}>
                             Início

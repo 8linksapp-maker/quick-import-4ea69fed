@@ -96,7 +96,11 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
                 throw new Error(data.error);
             }
 
-            setSites(data.sites || []);
+            // Filter out default WordOps sites
+            const sitesToFilter = ['22222', 'default'];
+            const filteredSites = (data.sites || []).filter(site => !sitesToFilter.includes(site));
+            setSites(filteredSites);
+
             return true; // Sucesso
         } catch (err: any) {
             console.error("Erro ao buscar sites:", err);
@@ -270,12 +274,17 @@ const VpsControlPanel = ({ vps, onBack, onVpsDeleted, onSiteSelect, connectedSit
     const handleEditSite = (siteDomain: string) => {
         const normalizedSiteDomain = normalizeUrl(siteDomain);
         const connectedSiteData = connectedSites.find(cs => normalizeUrl(cs.site_url) === normalizedSiteDomain);
-        if (connectedSiteData) {
-            setSiteToEdit(connectedSiteData);
-            setIsEditModalOpen(true);
-        } else {
-            alert('Apenas sites "Conectados" podem ser editados. Conecte este site na aba "Sites" para habilitar a edição.');
-        }
+
+        // If the site is not connected, create a placeholder object to pass to the form.
+        // This ensures the modal opens for both connected and unconnected sites.
+        const siteDataForModal = connectedSiteData || { 
+            name: siteDomain, 
+            site_url: `https://${siteDomain}`,
+            // The EditWpSiteForm will handle the logic for creating a new entry if one doesn't exist.
+        };
+
+        setSiteToEdit(siteDataForModal);
+        setIsEditModalOpen(true);
     };
 
     const renderUserManagementContent = () => {

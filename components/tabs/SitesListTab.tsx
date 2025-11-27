@@ -53,7 +53,11 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger, onSiteSelec
           console.error(`Failed to get sites for VPS ${vps.host}:`, installedSitesError);
           return [];
         }
-        return (installedSitesData.sites || []).map((siteDomain: string) => ({
+
+        const sitesToFilter = ['22222', 'default'];
+        const filteredInstalledSites = (installedSitesData.sites || []).filter((site: string) => !sitesToFilter.includes(site));
+        
+        return filteredInstalledSites.map((siteDomain: string) => ({
           id: `${vps.host}-${siteDomain}`,
           site_url: siteDomain,
           type: 'installed' as const,
@@ -91,12 +95,13 @@ const SitesListTab: React.FC<SitesListTabProps> = ({ refetchTrigger, onSiteSelec
   };
 
   const handleEdit = (site: CombinedSiteData) => {
-    if (site.type === 'connected' && site.wpData) {
-      setSiteToEdit(site.wpData);
-      setIsEditModalOpen(true);
-    } else {
-      alert('Apenas sites "Conectados" podem ser editados. Conecte este site para habilitar a edição.');
-    }
+    // If connected, use the full wpData. If not, create a placeholder.
+    const siteDataForModal = site.wpData || {
+        name: site.site_url,
+        site_url: `https://${site.site_url}`,
+    };
+    setSiteToEdit(siteDataForModal as WpData);
+    setIsEditModalOpen(true);
   };
   
   const handleDelete = (site: CombinedSiteData) => {
