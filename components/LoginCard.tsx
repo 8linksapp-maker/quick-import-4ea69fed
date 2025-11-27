@@ -208,18 +208,24 @@ interface CourseCardProps {
 const CourseCard: React.FC<CourseCardProps> = ({ course, onMouseEnter, onClick }) => {
     return (
         <div
-            className="flex-shrink-0 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 px-1 cursor-pointer"
+            className="flex-shrink-0 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 px-1 cursor-pointer w-full"
             onMouseEnter={(e) => onMouseEnter(course, e.currentTarget.getBoundingClientRect())}
             onClick={() => onClick(course)}
         >
             <div className="aspect-[16/9] w-full relative">
                 <img src={course.posterUrl} alt={course.title} className="w-full h-full object-cover rounded-md" />
-                {course.progress && (
-                    <div className="absolute bottom-1.5 left-2 right-2 h-1 bg-zinc-600 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-600" style={{ width: `${course.progress}%` }}></div>
-                    </div>
-                )}
             </div>
+
+            {/* Progress bar is now outside and below the image */}
+            {course.progress && (
+                <div className="w-full">
+                    <div className="w-4/6 mx-auto">
+                        <div className="mt-2 h-[4px] bg-zinc-600 overflow-hidden">
+                            <div className="h-full bg-red-600" style={{ width: `${course.progress}%` }}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

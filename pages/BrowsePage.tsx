@@ -127,15 +127,6 @@ const BrowsePage: React.FC = () => {
                 if (configError) throw configError;
                 const config = configData.data;
 
-                // START of new diagnostic code
-                const heroUrlFromConfig = config.hero_video_url || '';
-                console.log("--- DIAGNOSTIC START ---");
-                console.log("Raw heroUrl from config:", heroUrlFromConfig);
-                console.log("Length of heroUrl:", heroUrlFromConfig.length);
-                console.log("Does heroUrl contain '...'?", heroUrlFromConfig.includes('…'));
-                console.log("--- DIAGNOSTIC END ---");
-                // END of new diagnostic code
-
                 const { data: coursesData, error: coursesError } = await supabase.from('courses').select('*');
                 if (coursesError) throw coursesError;
                 setRawCourses(coursesData || []);
@@ -213,7 +204,6 @@ const BrowsePage: React.FC = () => {
                         heroWatchButtonLink: config.hero_watch_button_link,
                         heroInfoButtonLink: config.hero_info_button_link,
                     };
-                    console.log("DEBUG: Hero Course Data being set:", heroData);
                     setHeroCourse(heroData);
 
                     const generatedCarousels = coursesData.map(course => {
@@ -336,10 +326,7 @@ const BrowsePage: React.FC = () => {
                 .filter(l => l.module_id === module.id)
                 .sort((a, b) => a.order - b.order)
                 .map(async (lesson) => {
-                    // Prioritize the thumbnail from the database if it exists
                     let thumbnailUrl = lesson.thumbnail_url;
-
-                    // If not, fetch it from the video service as a fallback
                     if (!thumbnailUrl) {
                         const details = await getVideoDetails(lesson.video_url);
                         thumbnailUrl = details.thumbnailUrl;
@@ -546,5 +533,7 @@ const BrowsePage: React.FC = () => {
         </>
     );
 };
+
+
 
 export default BrowsePage;
