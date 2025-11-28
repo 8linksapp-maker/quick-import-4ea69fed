@@ -12,7 +12,7 @@ export interface Course {
     category: string | null;
     poster_url: string | null;
     is_for_sale?: boolean;
-    kiwify_product_id?: string;
+    kiwify_product_ids?: string[]; // Changed to array
     price?: number;
 }
 
@@ -35,7 +35,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
     const [category, setCategory] = useState('');
     const [posterUrl, setPosterUrl] = useState<string | null>(null);
     const [isForSale, setIsForSale] = useState(false);
-    const [kiwifyProductId, setKiwifyProductId] = useState('');
+    const [kiwifyProductIds, setKiwifyProductIds] = useState<string[]>([]); // Changed to array
     const [price, setPrice] = useState(0);
     
     const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
             setCategory(courseToEdit.category || '');
             setPosterUrl(courseToEdit.poster_url || '');
             setIsForSale(courseToEdit.is_for_sale || false);
-            setKiwifyProductId(courseToEdit.kiwify_product_id || '');
+            setKiwifyProductIds(courseToEdit.kiwify_product_ids || []); // Changed to array
             setPrice(courseToEdit.price || 0);
         } else {
             // Reset form when adding a new course
@@ -62,7 +62,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
             setCategory('');
             setPosterUrl(null);
             setIsForSale(false);
-            setKiwifyProductId('');
+            setKiwifyProductIds([]); // Changed to array
             setPrice(0);
         }
     }, [courseToEdit]);
@@ -101,7 +101,7 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
             category, 
             poster_url: posterUrl, 
             is_for_sale: isForSale, 
-            kiwify_product_id: kiwifyProductId, 
+            kiwify_product_ids: kiwifyProductIds, // Changed to array
             price 
         };
 
@@ -127,8 +127,14 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
     };
 
     const handleSelectKiwifyProduct = (productId: string) => {
-        setKiwifyProductId(productId);
+        if (!kiwifyProductIds.includes(productId)) {
+            setKiwifyProductIds([...kiwifyProductIds, productId]);
+        }
         setIsKiwifyModalOpen(false);
+    };
+
+    const handleRemoveKiwifyProduct = (idToRemove: string) => {
+        setKiwifyProductIds(kiwifyProductIds.filter(id => id !== idToRemove));
     };
 
     return (
@@ -165,11 +171,16 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
                     {isForSale && (
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="kiwify_product_id" className="block text-sm font-medium text-gray-300 mb-2">ID do Produto Kiwify</label>
-                                <div className="flex items-center">
-                                    <input type="text" id="kiwify_product_id" value={kiwifyProductId} readOnly className="w-full bg-black/20 border border-white/20 rounded-md py-2 px-4 text-white" />
-                                    <button type="button" onClick={openKiwifyModal} className="ml-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">Vincular</button>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">IDs de Produto Kiwify Vinculados</label>
+                                <div className="space-y-2">
+                                    {kiwifyProductIds.map(id => (
+                                        <div key={id} className="flex items-center justify-between bg-black/20 border border-white/20 rounded-md p-2">
+                                            <span className="text-white font-mono text-sm">{id}</span>
+                                            <button type="button" onClick={() => handleRemoveKiwifyProduct(id)} className="text-red-500 hover:text-red-400 font-bold">&times;</button>
+                                        </div>
+                                    ))}
                                 </div>
+                                <button type="button" onClick={openKiwifyModal} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md">Vincular Novo Produto</button>
                             </div>
                         </div>
                     )}
@@ -201,5 +212,6 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
         </>
     )
 }
+
 
 export default CourseEditor;

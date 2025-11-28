@@ -15,13 +15,25 @@ serve(async (req) => {
       Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { data, error } = await supabaseClient.from('courses').select('*')
+    const { data, error } = await supabaseClient
+      .from('courses')
+      .select(`
+        *,
+        kiwify_product_ids:course_kiwify_products(kiwify_product_id)
+      `)
 
     if (error) {
       throw error
     }
 
-    return new Response(JSON.stringify({ data }), {
+    // The data from Supabase will have a nested structure for the product IDs.
+    // We'll flatten it to match the frontend's expectation.
+    const formattedData = data.map(course => ({
+      ...course,
+      kiwify_product_ids: course.kiwify_product_ids.map((p: any) => p.kiwify_product_id)
+    }));
+
+    return new Response(JSON.stringify({ data: formattedData }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })

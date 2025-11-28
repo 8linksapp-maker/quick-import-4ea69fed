@@ -1,6 +1,10 @@
 {
   "routes": [
     {
+      "src": "/functions/v1/(.*)",
+      "dest": "https://jqbauulslmeozqqlmjjc.supabase.co/functions/v1/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {

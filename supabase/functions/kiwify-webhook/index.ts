@@ -11,13 +11,30 @@ serve(async (req) => {
     const payload = await req.json()
     console.log("Kiwify webhook payload received:", payload);
 
+    // The actual order data is nested inside the 'order' object
+    const order = payload.order;
+    if (!order) {
+      throw new Error("Payload does not contain 'order' object");
+    }
+
+    // Check if the order status is 'paid'
+    if (order.order_status !== 'paid') {
+      return new Response(JSON.stringify({ message: 'Order status is not paid, ignoring.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const customerEmail = payload.customer.email
-    const kiwifyProductId = payload.product.id
+    const customerEmail = order.Customer.email
+    const kiwifyProductId = order.Product.product_id
+    console.log(`Processing paid order for email: ${customerEmail} and product ID: ${kiwifyProductId}`);
+
+
 
     // 1. Find or create the user
     let userId: string;
@@ -50,23 +67,24 @@ serve(async (req) => {
         console.log(`Created new user with ID: ${userId}`);
     }
 
-    // 2. Find the course
-    const { data: course, error: courseError } = await supabaseClient
-      .from('courses')
-      .select('id')
+    // 2. Find the course associated with the Kiwify Product ID
+    const { data: courseLink, error: courseLinkError } = await supabaseClient
+      .from('course_kiwify_products')
+      .select('course_id')
       .eq('kiwify_product_id', kiwifyProductId)
       .single()
 
-    if (courseError) {
-      console.error(`Error finding course with kiwify_product_id ${kiwifyProductId}:`, courseError);
-      throw courseError
+    if (courseLinkError) {
+      console.error(`Error finding course link for kiwify_product_id ${kiwifyProductId}:`, courseLinkError);
+      throw courseLinkError
     }
-    console.log(`Found course with ID: ${course.id}`);
+    const courseId = courseLink.course_id;
+    console.log(`Found course with ID: ${courseId}`);
 
     // 3. Upsert the subscription
     const subscriptionData = {
         user_id: userId,
-        course_id: course.id,
+        course_id: courseId,
         status: 'active',
         start_date: new Date().toISOString(),
         end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
@@ -85,7 +103,7 @@ serve(async (req) => {
     // 4. Grant user access to the course (upsert)
     const userCourseData = {
         user_id: userId,
-        course_id: course.id,
+        course_id: courseId,
     };
     const { error: userCourseError } = await supabaseClient
         .from('user_courses')
