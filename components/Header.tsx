@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchIcon, BellIcon, ChevronDownIcon } from './Icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../src/AuthContext';
+import { useAuth } from '@/AuthContext';
 
 const Header: React.FC<HeaderProps> = ({ view }) => {
     const [isScrolled, setIsScrolled] = useState(false);

@@ -1,7 +1,8 @@
 // @refresh reset
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Player from '@vimeo/player';
+
+import NetflixPlayer from '../components/NetflixPlayer';
 import { Course, Lesson, Module as AppModule } from '../components/LoginCard';
 import CourseCurriculum from '../components/CourseCurriculum';
 import { PaperAirplaneIcon, AcademicCapIcon, CheckCircleIcon, ArrowRightIcon } from '../components/Icons';
@@ -136,6 +137,7 @@ const LessonPage: React.FC = () => {
     const { user } = useAuth();
     const [course, setCourse] = useState<Course | null>(null);
     const [currentLesson, setCurrentLesson] = useState<any | null>(null);
+    const [displayTitle, setDisplayTitle] = useState<string>('');
     const [nextLesson, setNextLesson] = useState<Lesson | null>(null);
     const [loading, setLoading] = useState(true);
     const [isCompleted, setIsCompleted] = useState(false);
@@ -144,8 +146,6 @@ const LessonPage: React.FC = () => {
     const { hasAccess, loading: accessLoading } = useCourseAccess(courseId);
 
     const videoRef = useRef<HTMLVideoElement>(null);
-    const vimeoPlayerContainerRef = useRef<HTMLDivElement>(null);
-    const vimeoPlayerRef = useRef<Player | null>(null);
     const lastUpdateTime = useRef<number>(0);
 
     const updateProgress = async (currentTime: number, duration: number) => {
@@ -234,41 +234,6 @@ const LessonPage: React.FC = () => {
         }
     };
 
-    // --- Vimeo Player Logic ---
-    useEffect(() => {
-        if (vimeoPlayerRef.current) {
-            vimeoPlayerRef.current.destroy();
-            vimeoPlayerRef.current = null;
-        }
-
-        const video = getEmbedUrl(currentLesson?.video_url || '', true);
-        if (vimeoPlayerContainerRef.current && video.type === 'iframe' && video.url.includes('vimeo')) {
-            const player = new Player(vimeoPlayerContainerRef.current, {
-                url: currentLesson.video_url,
-                autoplay: true,
-                responsive: true,
-                muted: true,
-            });
-
-            vimeoPlayerRef.current = player;
-
-            player.on('timeupdate', (data) => {
-                const now = Date.now();
-                if (now - lastUpdateTime.current > 10000) { // Throttle
-                    updateProgress(data.seconds, data.duration);
-                    lastUpdateTime.current = now;
-                }
-            });
-
-            player.on('ended', handleNavigateToNext);
-        }
-
-        return () => {
-            if (vimeoPlayerRef.current) {
-                vimeoPlayerRef.current.destroy();
-            }
-        };
-    }, [currentLesson?.id]);
     // --- End Vimeo Player Logic ---
 
     useEffect(() => {
@@ -285,6 +250,12 @@ const LessonPage: React.FC = () => {
 
             const { data: courseData, error: courseError } = await supabase.from('courses').select('*').eq('id', courseId).single();
             if (courseError) { console.error(courseError); setLoading(false); return; }
+
+            // Construct the display title
+            if (courseData && lessonData) {
+                const title = `${courseData.title} A${lessonData.order} ${lessonData.title}`;
+                setDisplayTitle(title);
+            }
 
             const { data: modulesData, error: modulesError } = await supabase.from('modules').select('*').eq('course_id', courseId).order('order');
             if (modulesError) { console.error(modulesError); setLoading(false); return; }
@@ -390,23 +361,10 @@ const LessonPage: React.FC = () => {
             <div className="flex flex-col lg:flex-row">
                 <div className="w-full lg:w-3/4 bg-[#141414] pt-20">
                     <div className="aspect-video bg-black">
-                         {video.type === 'iframe' && video.url.includes('vimeo') ? (
-                            <div ref={vimeoPlayerContainerRef} className="w-full h-full"></div>
-                        ) : video.type === 'iframe' ? (
-                            <iframe src={video.url} width="100%" height="100%" frameBorder="0" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen></iframe>
-                        ) : (
-                            <video 
-                                ref={videoRef}
-                                key={currentLesson.id} 
-                                src={video.url} 
-                                autoPlay 
-                                controls 
-                                onEnded={handleNavigateToNext} 
-                                onTimeUpdate={handleTimeUpdate}
-                                onLoadedMetadata={handleLoadedMetadata}
-                                className="w-full h-full" 
-                            />
-                        )}
+                        <NetflixPlayer 
+                            url={currentLesson.video_url} 
+                            title={displayTitle}
+                        />
                     </div>
                     <div className="p-8">
                         <div className="flex justify-between items-center mb-4">

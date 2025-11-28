@@ -2,7 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Router from './router';
-import { AuthProvider } from './src/AuthContext';
+import { AuthProvider } from '@/AuthContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

@@ -20,8 +20,8 @@ import ManageApisPage from './pages/admin/ManageApisPage';
 import EditMainPage from './pages/admin/EditMainPage';
 import CourseContentEditorPage from './pages/admin/CourseContentEditorPage';
 
-import ProtectedRoute from './src/ProtectedRoute';
-import GuestRoute from './src/GuestRoute';
+import ProtectedRoute from '@/ProtectedRoute';
+import GuestRoute from '@/GuestRoute';
 
 const router = createBrowserRouter([
     {

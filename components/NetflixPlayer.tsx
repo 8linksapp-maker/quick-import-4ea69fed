@@ -1,13 +1,15 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { PlayIcon, PauseIcon, Rewind10Icon, Forward10Icon, VolumeUpIcon, VolumeOffIcon } from './Icons';
+import { PlayIcon, PauseIcon, Rewind10Icon, Forward10Icon, VolumeUpIcon, VolumeOffIcon, FullscreenIcon, MinimizeIcon } from './Icons';
 
 interface NetflixPlayerProps {
   url: string;
+  title: string;
 }
 
-const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
+const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, title }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null); // Ref para o container do player
   const hiddenVideoRef = useRef<HTMLVideoElement>(null); // For thumbnail generation
   const canvasRef = useRef<HTMLCanvasElement>(null); // For thumbnail generation
 
@@ -16,6 +18,7 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
   const [volume, setVolume] = useState(1);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false); // Estado para tela cheia
   
   const [isDragging, setIsDragging] = useState(false);
   const [wasPlaying, setWasPlaying] = useState(false);
@@ -53,7 +56,9 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
     if (hideControlsTimeout.current) {
       clearTimeout(hideControlsTimeout.current);
     }
-    setShowControls(false);
+    hideControlsTimeout.current = window.setTimeout(() => {
+      setShowControls(false);
+    }, 3000); // Hide after 3 seconds of inactivity
   }, []);
   // --- End Controls Auto-hide Logic ---
 
@@ -225,6 +230,30 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
       window.removeEventListener('mouseup', handleVolumeMouseUp);
     };
   }, [isVolumeDragging, handleVolumeMouseMove, handleVolumeMouseUp]);
+
+  const handleFullscreen = () => {
+    if (playerContainerRef.current) {
+      if (!document.fullscreenElement) {
+        playerContainerRef.current.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
   
   const generateThumbnail = async (seekTime: number) => {
     // console.log('generateThumbnail called for seekTime:', seekTime);
@@ -296,6 +325,7 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
   return (
     <>
     <div
+        ref={playerContainerRef}
         className="relative pt-[56.25%] bg-black" // Removed cursor-pointer from here as it's on the clickable area
         onMouseMove={handleVideoMouseMove}
         onMouseLeave={handleVideoMouseLeave}
@@ -320,14 +350,14 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
       {/* Custom Controls Overlay */}
       {showControls && ( // Conditionally render the controls overlay
         <div 
-          className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300" // Added transition
+          className="absolute bottom-0 left-0 w-full px-4 pt-8 pb-6 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300" // Added transition
           onClick={(e) => e.stopPropagation()}
           onMouseEnter={handleVideoMouseMove} // Keep controls visible when hovering over them
           onMouseLeave={handleVideoMouseLeave} // Hide controls when mouse leaves controls
         >
         {/* Progress Bar */}
         <div
-            className="w-full relative mb-3" // Container for the entire progress bar interaction
+            className="w-full relative mb-6" // Container for the entire progress bar interaction
         >
             {/* Invisible larger clickable area */}
             <div 
@@ -383,13 +413,13 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
         <div className="flex items-center justify-between">
             {/* Left Controls */}
             <div className="flex items-center space-x-4">
-                <button onClick={handleTogglePlay} className="text-white">
-                    {isPlaying ? <PauseIcon className="w-9 h-9" /> : <PlayIcon className="w-9 h-9" />}
+                <button onClick={handleTogglePlay} className="text-white p-2">
+                    {isPlaying ? <PauseIcon /> : <PlayIcon />}
                 </button>
-                <button onClick={handleRewind} className="text-white">
+                <button onClick={handleRewind} className="text-white p-2">
                     <Rewind10Icon />
                 </button>
-                <button onClick={handleForward} className="text-white">
+                <button onClick={handleForward} className="text-white p-2">
                     <Forward10Icon />
                 </button>
                 <div 
@@ -397,7 +427,7 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
                     onMouseEnter={() => setIsVolumeSliderVisible(true)}
                     onMouseLeave={() => { if (!isVolumeDragging) setIsVolumeSliderVisible(false); }}
                 >
-                    <button onClick={handleToggleMute} className="text-white">
+                    <button onClick={handleToggleMute} className="text-white p-2">
                         {isMuted || volume === 0 ? <VolumeOffIcon /> : <VolumeUpIcon />}
                     </button>
                     {isVolumeSliderVisible && (
@@ -419,13 +449,18 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url }) => {
             </div>
 
             {/* Center Controls (Title) */}
-            <div>
-                {/* TODO: Add Title */}
+            <div className="flex-1 text-center px-4">
+                <span className="text-white text-lg font-netflix-sans-medium truncate">
+                    {title}
+                </span>
             </div>
 
             {/* Right Controls */}
-            <div>
+            <div className="flex items-center space-x-4"> {/* Adicionado flex e space-x-2 para organizar o botão */}
                 {/* TODO: Add Next, List, etc. */}
+                <button onClick={handleFullscreen} className="text-white p-2">
+                    {isFullscreen ? <MinimizeIcon /> : <FullscreenIcon />}
+                </button>
             </div>
         </div>
 

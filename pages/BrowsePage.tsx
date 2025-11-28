@@ -487,9 +487,10 @@ const BrowsePage: React.FC = () => {
                             onShowDetails={handleOpenDetailModal}
                             onMouseEnter={handleMouseEnter}
                             onMouseLeave={handleCarouselLeave}
+                            isFirstCarousel
                         />
                     )}
-                    {carousels.map(carousel => (
+                    {carousels.map((carousel, index) => (
                         carousel.courses.length > 0 && (
                             <CourseCarousel
                                 key={carousel.title}
@@ -499,6 +500,7 @@ const BrowsePage: React.FC = () => {
                                 onShowDetails={handleOpenDetailModal}
                                 onMouseEnter={handleMouseEnter}
                                 onMouseLeave={handleCarouselLeave}
+                                isFirstCarousel={!continueWatchingCarousel && index === 0}
                             />
                         )
                     ))}

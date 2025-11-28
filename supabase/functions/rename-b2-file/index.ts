@@ -60,7 +60,7 @@ serve(async (req) => {
     // 1. Copy the object to the new key
     const copyCommand = new CopyObjectCommand({
       Bucket: cleanedBucketName,
-      CopySource: `${cleanedBucketName}/${encodeURIComponent(sourceKey)}`,
+      CopySource: `${cleanedBucketName}/${sourceKey}`,
       Key: destinationKey,
     });
     await s3Client.send(copyCommand);

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { getEmbedUrl } from '../src/videoUtils';
-import { PlayIcon, AddIcon, LikeIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { PlayIcon, AddIcon, LikeIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, AgeRatingIcon } from './Icons';
 
 // --- Type Definitions ---
 export interface Lesson {
@@ -146,13 +146,19 @@ export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onC
                             <img src={course.posterUrl} alt={course.title} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isVideoLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
                         </div>
                         <div className="p-3 space-y-3">
-                             <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center">
                                 <div className="flex items-center space-x-2">
-                                    <button className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-black" onClick={(e) => { e.stopPropagation(); onCardClick(course); }}><PlayIcon /></button>
-                                    <button className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('add'); }}><AddIcon /></button>
-                                    <button className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('like'); }}><LikeIcon /></button>
+                                    <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full bg-white text-black" onClick={(e) => { e.stopPropagation(); onCardClick(course); }}>
+                                        <PlayIcon />
+                                    </button>
+                                    <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('add'); }}>
+                                        <CheckIcon />
+                                    </button>
+                                    <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('like'); }}>
+                                        <LikeIcon />
+                                    </button>
                                 </div>
-                                <button className="w-8 h-8 flex items-center justify-center rounded-full border-2 border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); onShowDetails(course); }}>
+                                <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); onShowDetails(course); }}>
                                     <ChevronDownIcon />
                                 </button>
                             </div>
@@ -172,17 +178,17 @@ export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onC
                                 ) : (
                                     <>
                                         <div className="flex items-center space-x-2 text-sm">
-                                            <p className="font-bold text-base">{course.title}</p>
+                                            
                                         </div>
-                                        <div className="flex items-center space-x-3 text-xs text-gray-400">
-                                            <span>{course.totalLessons} aulas</span>
-                                            <span>{course.duration}</span>
-                                            <span className="border border-gray-400 px-1.5 text-[10px]">HD</span>
+                                        <div className="flex items-center space-x-3 text-[10px] text-gray-400">
+                                            <AgeRatingIcon />
+                                            <span style={{ fontFamily: "'Netflix Sans', sans-serif" }}><span>{course.totalLessons}</span><span style={{ marginLeft: '0.1em' }}>aulas</span></span>
+                                            <span className="border-[0.1px] rounded-sm border-gray-400 px-1 text-[0.5rem]">HD</span>
                                         </div>
-                                        <div className="flex items-center text-xs text-gray-300 space-x-1.5 flex-wrap">
+                                        <div className="flex items-center text-[10px] text-gray-300 space-x-1.5 flex-wrap mt-1">
                                             {course.tags.slice(0, 3).map((tag, index) => (
                                                 <React.Fragment key={index}>
-                                                    <span>{tag}</span>
+                                                    <span className="font-light">{tag}</span>
                                                     {index < course.tags.length - 1 && <span className="text-gray-600">•</span>}
                                                 </React.Fragment>
                                             ))}

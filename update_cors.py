@@ -15,7 +15,9 @@ def main():
       {
         "corsRuleName": "allowWebAppUploads",
         "allowedOrigins": [
-          "http://localhost:3000"
+          "http://localhost:3000",
+          "https://*.seoflix.com.br",
+          "https://seoflix.com.br"
         ],
         "allowedHeaders": [
           "Authorization",
@@ -29,6 +31,14 @@ def main():
         ],
         "exposeHeaders": [],
         "maxAgeSeconds": 3600
+      },
+      {
+          "corsRuleName": "allowBrowserReads",
+          "allowedOrigins": ["*"],
+          "allowedOperations": ["s3_get"],
+          "allowedHeaders": ["Content-Type", "Authorization", "Range"],
+          "exposeHeaders": ["Content-Length", "Content-Range"],
+          "maxAgeSeconds": 3600
       }
     ]
 

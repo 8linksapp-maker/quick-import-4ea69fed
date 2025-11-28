@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../../src/supabaseClient';
 import KiwifyUploader from '../../KiwifyUploader';
+import LibraryModal, { B2File } from '../LibraryModal';
 
 interface AddLessonFormProps {
     moduleId: number;
@@ -8,26 +9,70 @@ interface AddLessonFormProps {
     onCancel: () => void;
 }
 
-const generateThumbnail = (videoFile: File, seekTime: number = 2): Promise<Blob> => {
+const generateThumbnail = (videoSource: File | string, seekTime: number = 2): Promise<Blob> => {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
-        video.src = URL.createObjectURL(videoFile);
+        let objectUrl: string | null = null;
+
+        if (videoSource instanceof File) {
+            objectUrl = URL.createObjectURL(videoSource);
+            video.src = objectUrl;
+        } else {
+            video.crossOrigin = "anonymous"; // Important for CORS
+            video.src = videoSource;
+        }
+
         video.currentTime = seekTime;
-        video.onseeked = () => {
+
+        const onSeeked = () => {
+            // Remove listeners to prevent memory leaks
+            video.removeEventListener('seeked', onSeeked);
+            video.removeEventListener('error', onError);
+
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
+            
             if (ctx) {
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 canvas.toBlob(blob => {
-                    URL.revokeObjectURL(video.src);
+                    if (objectUrl) {
+                        URL.revokeObjectURL(objectUrl);
+                    }
                     if (blob) resolve(blob);
                     else reject(new Error('Canvas to Blob conversion failed'));
                 }, 'image/jpeg', 0.8);
-            } else reject(new Error('Could not get canvas context'));
+            } else {
+                if (objectUrl) {
+                    URL.revokeObjectURL(objectUrl);
+                }
+                reject(new Error('Could not get canvas context'));
+            }
         };
-        video.onerror = (e) => reject(e);
+
+        const onError = (e: Event | string) => {
+            // Remove listeners to prevent memory leaks
+            video.removeEventListener('seeked', onSeeked);
+            video.removeEventListener('error', onError);
+            
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+
+            if (video.error) {
+                reject(new Error(`Video error: ${video.error.message} (code: ${video.error.code})`));
+            } else if (typeof e === 'string') {
+                reject(new Error(e));
+            } else {
+                reject(new Error('An unknown video error occurred.'));
+            }
+        };
+
+        video.addEventListener('seeked', onSeeked);
+        video.addEventListener('error', onError);
+        
+        // Start loading the video
         video.load();
     });
 };
@@ -39,6 +84,7 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
     const [releaseDate, setReleaseDate] = useState('');
     const [releaseType, setReleaseType] = useState('immediate');
     const [isDurationLimited, setIsDurationLimited] = useState(false);
+    const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
 
     const [videoFile, setVideoFile] = useState<File | null>(null);
     const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
@@ -67,6 +113,55 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
             const reader = new FileReader();
             reader.onloadend = () => setCustomThumbPreview(reader.result as string);
             reader.readAsDataURL(file);
+        }
+    };
+
+    const handleFileSelectFromLibrary = async (file: B2File) => {
+        setIsProcessing(true);
+        setStatusText('Processando vídeo da biblioteca...');
+        setError(null);
+        setIsLibraryModalOpen(false);
+    
+        try {
+            if (!title) {
+                // We are showing the modal in a div, so we can't use alert
+                // alert("Por favor, preencha o título da aula antes de selecionar um vídeo da biblioteca.");
+                setError("Por favor, preencha o título da aula antes de selecionar um vídeo da biblioteca.");
+                setTimeout(() => setError(null), 3000);
+                setIsProcessing(false);
+                return;
+            }
+    
+            const baseFileName = await getSanitizedBaseFileName();
+            const originalExtension = file.fileName.split('.').pop() || 'mp4';
+            const destinationKey = `${baseFileName}.${originalExtension}`;
+    
+            setStatusText('Renomeando arquivo na nuvem...');
+            const { data: renameData, error: renameError } = await supabase.functions.invoke('rename-b2-file', {
+                body: { sourceKey: file.fileName, destinationKey }
+            });
+    
+            if (renameError) {
+                const errorBody = renameError.context || renameError;
+                const message = errorBody.error ? JSON.stringify(errorBody.error) : renameError.message;
+                throw new Error(message || 'Erro desconhecido ao renomear arquivo.');
+            }
+    
+            const newVideoUrl = renameData?.newUrl || file.url;
+            setUploadedVideoUrl(newVideoUrl);
+            setVideoFile(null); // Clear any selected file
+    
+            setStatusText('Vídeo da biblioteca processado com sucesso.');
+    
+        } catch (err: any) {
+            const errorMessage = err.message || JSON.stringify(err);
+            setError(`Falha ao processar arquivo da biblioteca: ${errorMessage}`);
+            setUploadedVideoUrl(null);
+        } finally {
+            setTimeout(() => {
+                setIsProcessing(false);
+                setStatusText('');
+            }, 2000);
         }
     };
 
@@ -120,6 +215,8 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
             throw new Error('URL de upload ou URL pública não recebida da função.');
         }
 
+        console.log('DEBUG: Attempting direct upload with data:', { uploadUrl, publicUrl, fileType });
+
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', uploadUrl);
@@ -141,11 +238,37 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
             };
 
             xhr.onerror = () => {
-                reject(new Error('Erro de rede durante o upload direto para B2.'));
+                console.error("XHR Error:", xhr.status, xhr.statusText, xhr.response);
+                reject(new Error('Erro de rede durante o upload direto para B2. Verifique o console para detalhes e confirme a configuração de CORS no bucket do B2.'));
             };
 
             xhr.send(fileToUpload);
         });
+    };
+
+    const getSanitizedBaseFileName = async () => {
+        const { data: moduleData, error: moduleError } = await supabase
+            .from('modules')
+            .select('title, course_id')
+            .eq('id', moduleId)
+            .single();
+    
+        if (moduleError) throw new Error(`Falha ao buscar módulo: ${moduleError.message}`);
+        if (!moduleData) throw new Error('Módulo não encontrado.');
+    
+        const { data: courseData, error: courseError } = await supabase
+            .from('courses')
+            .select('title')
+            .eq('id', moduleData.course_id)
+            .single();
+    
+        if (courseError) throw new Error(`Falha ao buscar curso: ${courseError.message}`);
+        if (!courseData) throw new Error('Curso não encontrado.');
+    
+        const sanitize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, '-');
+        
+        const baseFileName = `${sanitize(courseData.title)}-${sanitize(moduleData.title)}-${sanitize(title || 'Aula')}`;
+        return baseFileName;
     };
 
 
@@ -166,32 +289,9 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
             // Only upload if there's a new file that hasn't been uploaded yet.
             if (videoFile && !videoUrlToSave) {
                 setStatusText('Construindo nome do arquivo...');
-                const { data: moduleData, error: moduleError } = await supabase
-                    .from('modules')
-                    .select('title, course_id')
-                    .eq('id', moduleId)
-                    .single();
-
-                if (moduleError) throw new Error(`Falha ao buscar módulo: ${moduleError.message}`);
-                if (!moduleData) throw new Error('Módulo não encontrado.');
-
-                const { data: courseData, error: courseError } = await supabase
-                    .from('courses')
-                    .select('title')
-                    .eq('id', moduleData.course_id)
-                    .single();
-
-                if (courseError) throw new Error(`Falha ao buscar curso: ${courseError.message}`);
-                if (!courseData) throw new Error('Curso não encontrado.');
-
-                const courseName = courseData.title || 'Curso';
-                const moduleName = moduleData.title || 'Modulo';
-                const lessonTitle = title || 'Aula';
+                
+                const baseFileName = await getSanitizedBaseFileName();
                 const originalExtension = videoFile.name.split('.').pop() || 'mp4';
-                
-                const sanitize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, '-');
-                
-                const baseFileName = `${sanitize(courseName)}-${sanitize(moduleName)}-${sanitize(lessonTitle)}`;
                 const newVideoFileName = `${baseFileName}.${originalExtension}`;
                 
                 setStatusText('Enviando vídeo...');
@@ -221,17 +321,22 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
             if (thumbFile) {
                 setStatusText('Enviando miniatura personalizada...');
                 thumbnailBlobToUpload = thumbFile;
-            } else if (videoFile) {
+            } else if (videoFile || videoUrlToSave) {
                 setStatusText('Gerando miniatura automática...');
-                thumbnailBlobToUpload = await generateThumbnail(videoFile);
+                const source = videoFile || videoUrlToSave;
+                if(source) {
+                    try {
+                        thumbnailBlobToUpload = await generateThumbnail(source);
+                    } catch (thumbError) {
+                        console.error("Erro ao gerar thumbnail:", thumbError);
+                        setError("Não foi possível gerar a thumbnail do vídeo. O vídeo pode estar em um formato não suportado pelo navegador ou haver um problema de CORS. Tente enviar uma thumbnail manualmente.");
+                        // Continue without a thumbnail or stop? For now, we'll let it continue and it will just not have a thumbnail
+                    }
+                }
             }
             
             if (thumbnailBlobToUpload) {
-                const sanitize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, '-');
-                const courseName = "Curso"; // Placeholder, adjust if needed
-                const moduleName = "Modulo"; // Placeholder, adjust if needed
-                const lessonTitle = title || 'Aula';
-                const baseFileName = `${sanitize(courseName)}-${sanitize(moduleName)}-${sanitize(lessonTitle)}`;
+                const baseFileName = await getSanitizedBaseFileName();
                 const newThumbFileName = `${baseFileName}-thumbnail.jpg`;
 
                 setStatusText('Enviando miniatura...');
@@ -280,6 +385,11 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
 
     return (
         <form onSubmit={handleSubmit} className="text-white p-4 sm:p-6 lg:p-8">
+            <LibraryModal
+                isOpen={isLibraryModalOpen}
+                onClose={() => setIsLibraryModalOpen(false)}
+                onFileSelect={handleFileSelectFromLibrary}
+            />
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Criar conteúdo</h2>
                 <div className="flex space-x-4">
@@ -344,7 +454,13 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
                                     )}
                                 </div>
                             )}
-                             <p className="text-center text-sm text-gray-400 mt-4">Usar vídeo do <a href="#" className="text-blue-400 underline">YouTube</a></p>
+                             <p className="text-center text-sm text-gray-400 mt-4">
+                                Usar vídeo do <a href="#" className="text-blue-400 underline">YouTube</a> 
+                                <span className="mx-2">ou</span>
+                                <button type="button" onClick={() => setIsLibraryModalOpen(true)} className="text-blue-400 underline">
+                                    selecionar da biblioteca
+                                </button>
+                            </p>
                         </div>
 
                         <div className="space-y-2 mt-6">

@@ -29,16 +29,19 @@ def main():
 
     correct_cors_rules = [
       {
-        "corsRuleName": "allowSpecificOrigins",
+        "corsRuleName": "allowUploadAndDownload",
         "allowedOrigins": [
           "http://localhost:3000",
           "http://localhost:3001",
+          "http://localhost:5173",
           "https://seoflix.com.br"
         ],
         "allowedOperations": [
-          "b2_download_file_by_name"
+          "b2_download_file_by_name",
+          "s3_get",
+          "s3_put"
         ],
-        "allowedHeaders": [],
+        "allowedHeaders": ["*"],
         "exposeHeaders": ["x-bz-content-sha1"],
         "maxAgeSeconds": 3600
       }
@@ -49,13 +52,19 @@ def main():
         print(f"Fetching bucket: {bucket_name}...")
         bucket = b2_api.get_bucket_by_name(bucket_name)
         print(f"Found bucket. Applying correct settings...")
-
+        
         bucket.update(bucket_type='allPublic', cors_rules=correct_cors_rules)
 
         print("\n✅ Success! Bucket settings have been updated.")
         print(" - Bucket type set to: allPublic")
-        print(f" - CORS rules applied to allow downloads from: {', '.join(correct_cors_rules[0]['allowedOrigins'])}")
-        print("\nVideo playback should now be fixed. Please check your website.")
+        print(f" - CORS rules applied to allow uploads/downloads from: {', '.join(correct_cors_rules[0]['allowedOrigins'])}")
+
+        print("\nVerifying applied CORS rules...")
+        current_rules = bucket.cors_rules
+        print("Current rules on bucket:")
+        print(json.dumps(current_rules, indent=2))
+        
+        print("\nVideo playback and upload should now be fixed. Please check your website.")
         
     except Exception as e:
         print(f"\nAn error occurred during the update: {e}")

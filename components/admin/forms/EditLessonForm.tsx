@@ -304,7 +304,7 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                     throw new Error(message || 'Erro desconhecido ao renomear arquivo.');
                 }
     
-                const newVideoUrl = renameData.newUrl;
+                const newVideoUrl = renameData?.newUrl || file.url;
                 setCurrentVideoUrl(newVideoUrl);
                 setIsChangingVideo(false);
                 setVideoFile(null); // Clear any selected file
@@ -350,6 +350,39 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                 setStatusText('Construindo nome do arquivo...');
                 const baseFileName = await getSanitizedBaseFileName();
     
+                // Rename existing files if title changed and no new video is being uploaded
+                if (currentVideoUrl && !videoFile) {
+                    const currentKey = decodeURIComponent(currentVideoUrl.substring(currentVideoUrl.lastIndexOf('/') + 1));
+                    const originalExtension = currentKey.split('.').pop() || 'mp4';
+                    const newDestinationKey = `${baseFileName}.${originalExtension}`;
+
+                    if (currentKey !== newDestinationKey) {
+                        setStatusText('Renomeando arquivo de vídeo para corresponder ao novo título...');
+                        const { data: renameData, error: renameError } = await supabase.functions.invoke('rename-b2-file', {
+                            body: { sourceKey: currentKey, destinationKey: newDestinationKey }
+                        });
+                        if (renameError) throw new Error(renameError.message || 'Erro ao renomear arquivo de vídeo.');
+                        
+                        newVideoUrl = renameData?.newUrl;
+                        setCurrentVideoUrl(newVideoUrl); // Update state as well
+
+                        // Also rename the thumbnail
+                        if (currentThumbnailUrl) {
+                            const currentThumbKey = decodeURIComponent(currentThumbnailUrl.substring(currentThumbnailUrl.lastIndexOf('/') + 1));
+                            const newThumbDestinationKey = `${baseFileName}-thumbnail.jpg`;
+                            if (currentThumbKey !== newThumbDestinationKey) {
+                                setStatusText('Renomeando arquivo de thumbnail...');
+                                const { data: thumbRenameData, error: thumbRenameError } = await supabase.functions.invoke('rename-b2-file', {
+                                    body: { sourceKey: currentThumbKey, destinationKey: newThumbDestinationKey }
+                                });
+                                if (thumbRenameError) throw new Error(thumbRenameError.message || 'Erro ao renomear thumbnail.');
+                                newThumbnailUrl = thumbRenameData?.newUrl;
+                                setCurrentThumbnailUrl(newThumbnailUrl);
+                            }
+                        }
+                    }
+                }
+
                 if (videoFile) {
                     console.log('handleSubmit: videoFile detectado, iniciando upload...');
                     setStatusText('Analisando vídeo...');
@@ -432,6 +465,51 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                 setIsProcessing(false);
                 setUploadProgress(0);
                 console.log('handleSubmit: Processo handleSubmit finalizado.');
+            }
+        };
+
+        const handleGenerateAndSaveThumbnail = async () => {
+            if (!currentVideoUrl) {
+                setError("Nenhum vídeo associado a esta aula para gerar thumbnail.");
+                return;
+            }
+        
+            setIsProcessing(true);
+            setStatusText('Iniciando geração de thumbnail...');
+            setError(null);
+        
+            try {
+                const thumbBlob = await generateThumbnailFromUrl(currentVideoUrl);
+                
+                setStatusText('Enviando miniatura...');
+                const baseFileName = await getSanitizedBaseFileName();
+                const newThumbFileName = `${baseFileName}-thumbnail.jpg`;
+                
+                const newThumbnailUrl = await handleDirectUpload(thumbBlob, newThumbFileName, (progress) => {
+                    setStatusText(`Enviando miniatura: ${progress}%`);
+                });
+        
+                setStatusText('Salvando no banco de dados...');
+                const { error: updateError } = await supabase
+                    .from('lessons')
+                    .update({ thumbnail_url: newThumbnailUrl })
+                    .eq('id', lessonId);
+        
+                if (updateError) throw updateError;
+        
+                setCurrentThumbnailUrl(newThumbnailUrl);
+                setCustomThumbPreview(newThumbnailUrl);
+                setStatusText('Thumbnail gerada e salva com sucesso!');
+        
+            } catch (err: any) {
+                console.error("handleGenerateAndSaveThumbnail: Erro detalhado:", err);
+                setError(`Falha ao gerar e salvar thumbnail: ${err.message}`);
+            } finally {
+                // Short delay to allow user to read success message
+                setTimeout(() => {
+                    setIsProcessing(false);
+                    setStatusText('');
+                }, 2000);
             }
         };
 
@@ -578,6 +656,21 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                                     accept="image/*"
                                     previewUrl={customThumbPreview || currentThumbnailUrl}
                                 />
+                                {currentVideoUrl && !currentThumbnailUrl && !thumbFile && (
+                                    <div className="mt-4">
+                                        <button
+                                            type="button"
+                                            onClick={handleGenerateAndSaveThumbnail}
+                                            disabled={isProcessing}
+                                            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-md disabled:opacity-50 transition-colors"
+                                        >
+                                            {isProcessing ? 'Gerando...' : 'Gerar Thumbnail do Vídeo'}
+                                        </button>
+                                        <p className="text-xs text-gray-400 mt-2 text-center">
+                                            Se a aula já tem um vídeo mas está sem thumbnail, clique aqui para gerar uma automaticamente.
+                                        </p>
+                                    </div>
+                                )}
                                 <div className="bg-yellow-900 bg-opacity-30 text-yellow-300 text-sm p-3 rounded-md flex items-start mt-2">
                                     <span className="mr-2">💡</span>
                                     <div>
