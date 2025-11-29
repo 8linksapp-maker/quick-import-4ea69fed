@@ -214,7 +214,7 @@ interface CourseCardProps {
 const CourseCard: React.FC<CourseCardProps> = ({ course, onMouseEnter, onClick }) => {
     return (
         <div
-            className="flex-shrink-0 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 px-1 cursor-pointer w-full"
+            className="flex-shrink-0 w-1/2 sm:w-full px-1 cursor-pointer"
             onMouseEnter={(e) => onMouseEnter(course, e.currentTarget.getBoundingClientRect())}
             onClick={() => onClick(course)}
         >
