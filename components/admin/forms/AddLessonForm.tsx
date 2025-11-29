@@ -117,36 +117,41 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
     };
 
     const handleFileSelectFromLibrary = async (file: B2File) => {
+        console.log("AddLessonForm: handleFileSelectFromLibrary CALLED. File:", file);
+        console.log("AddLessonForm: Initial state: title=", title);
+
         setIsProcessing(true);
         setStatusText('Processando vídeo da biblioteca...');
         setError(null);
         setIsLibraryModalOpen(false);
-    
+
         try {
+            console.log("AddLessonForm: Entering TRY block.");
             if (!title) {
-                // We are showing the modal in a div, so we can't use alert
-                // alert("Por favor, preencha o título da aula antes de selecionar um vídeo da biblioteca.");
+                console.log("AddLessonForm: Title is EMPTY. Setting error.");
                 setError("Por favor, preencha o título da aula antes de selecionar um vídeo da biblioteca.");
-                setTimeout(() => setError(null), 3000);
+                // No need for timeout here, user action is required.
                 setIsProcessing(false);
                 return;
             }
     
+            console.log("AddLessonForm: Title is PRESENT. Proceeding with rename.");
             const baseFileName = await getSanitizedBaseFileName();
-            const originalExtension = file.fileName.split('.').pop() || 'mp4';
+            const originalExtension = file.key.split('.').pop() || 'mp4';
             const destinationKey = `${baseFileName}.${originalExtension}`;
     
             setStatusText('Renomeando arquivo na nuvem...');
+            console.log("AddLessonForm: Calling rename-b2-file with:", { sourceKey: file.key, destinationKey });
             const { data: renameData, error: renameError } = await supabase.functions.invoke('rename-b2-file', {
-                body: { sourceKey: file.fileName, destinationKey }
+                body: { sourceKey: file.key, destinationKey }
             });
     
             if (renameError) {
-                const errorBody = renameError.context || renameError;
-                const message = errorBody.error ? JSON.stringify(errorBody.error) : renameError.message;
-                throw new Error(message || 'Erro desconhecido ao renomear arquivo.');
+                console.error("AddLessonForm: rename-b2-file ERROR:", renameError);
+                throw new Error(renameError.message || 'Erro desconhecido ao renomear arquivo.');
             }
-    
+            
+            console.log("AddLessonForm: rename-b2-file SUCCESS:", renameData);
             const newVideoUrl = renameData?.newUrl || file.url;
             setUploadedVideoUrl(newVideoUrl);
             setVideoFile(null); // Clear any selected file
@@ -154,10 +159,14 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
             setStatusText('Vídeo da biblioteca processado com sucesso.');
     
         } catch (err: any) {
+            console.error("AddLessonForm: CATCH block error:", err);
             const errorMessage = err.message || JSON.stringify(err);
             setError(`Falha ao processar arquivo da biblioteca: ${errorMessage}`);
             setUploadedVideoUrl(null);
+            setIsProcessing(false); // Stop processing on error
         } finally {
+            console.log("AddLessonForm: Entering FINALLY block.");
+            // Short delay to allow user to see success/error message
             setTimeout(() => {
                 setIsProcessing(false);
                 setStatusText('');
@@ -444,7 +453,7 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
                                 />
                             )}
                             
-                            {isProcessing && videoFile && !uploadedVideoUrl && (
+                            {isProcessing && !uploadedVideoUrl && (
                                 <div className="absolute inset-0 bg-gray-800 bg-opacity-90 flex flex-col items-center justify-center rounded-md z-10">
                                     <p className="text-lg font-medium text-gray-200">{statusText}</p>
                                     {uploadProgress > 0 && uploadProgress <= 100 && (

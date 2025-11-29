@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../src/supabaseClient';
 import Modal from '../Modal';
 
-interface B2File {
+export interface B2File {
     key: string;
     size: number;
     lastModified: string;
@@ -92,7 +92,6 @@ const LibraryModal: React.FC<LibraryModalProps> = ({ isOpen, onClose, onFileSele
 
     const handleSelect = (file: B2File) => {
         onFileSelect(file);
-        onClose();
     };
 
     return (

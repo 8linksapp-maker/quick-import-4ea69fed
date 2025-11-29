@@ -410,7 +410,7 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, title }) => {
         </div>
 
         {/* Control Icons */}
-        <div className="flex items-center justify-between">
+        <div className="relative flex items-center justify-between">
             {/* Left Controls */}
             <div className="flex items-center space-x-4">
                 <button onClick={handleTogglePlay} className="text-white p-2">
@@ -449,7 +449,7 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, title }) => {
             </div>
 
             {/* Center Controls (Title) */}
-            <div className="flex-1 text-center px-4">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-4 w-1/2 text-center">
                 <span className="text-white text-lg font-netflix-sans-medium truncate">
                     {title}
                 </span>

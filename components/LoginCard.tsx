@@ -148,17 +148,17 @@ export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onC
                         <div className="p-3 space-y-3">
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center space-x-2">
-                                    <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full bg-white text-black" onClick={(e) => { e.stopPropagation(); onCardClick(course); }}>
-                                        <PlayIcon />
+                                    <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full bg-white text-black" onClick={(e) => { e.stopPropagation(); onCardClick(course); }}>
+                                        <PlayIcon className="w-4 h-4" />
                                     </button>
-                                    <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('add'); }}>
+                                    <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('add'); }}>
                                         <CheckIcon />
                                     </button>
-                                    <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('like'); }}>
+                                    <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('like'); }}>
                                         <LikeIcon />
                                     </button>
                                 </div>
-                                <button className="w-9 h-9 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); onShowDetails(course); }}>
+                                <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); onShowDetails(course); }}>
                                     <ChevronDownIcon />
                                 </button>
                             </div>

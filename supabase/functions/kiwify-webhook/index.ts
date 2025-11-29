@@ -30,7 +30,7 @@ serve(async (req) => {
       Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const customerEmail = order.Customer.email
+    const customerEmail = order.Customer.email.replace(/\s/g, '');
     const kiwifyProductId = order.Product.product_id
     console.log(`Processing paid order for email: ${customerEmail} and product ID: ${kiwifyProductId}`);
 

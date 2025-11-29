@@ -1,5 +1,5 @@
 .login-container {
-    background-image: url('https://assets.nflxext.com/ffe/siteui/vlv3/9c5457b8-9ab0-4a04-9fc1-e609d5a37053/781b19d7-3768-468c-a5a2-a75639f356d5/BR-pt-20240122-popsignuptwoweeks-perspective_alpha_website_large.jpg');
+    background-image: url('/login-background.png');
     background-size: cover;
     background-position: center;
     height: 100vh;

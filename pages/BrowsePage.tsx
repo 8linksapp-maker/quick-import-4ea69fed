@@ -456,13 +456,13 @@ const BrowsePage: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent"></div>
                 </div>
                 
-                <div className="relative p-4 -mt-16 md:-mt-24 lg:absolute lg:mt-0 lg:bottom-[30%] lg:left-16 z-10 max-w-xl">
+                <div className="relative p-4 -mt-16 md:-mt-24 lg:absolute lg:mt-0 lg:bottom-[30%] lg:left-16 z-10 max-w-2xl">
                     <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold">{heroCourse.title}</h1>
                     <p className="mt-4 text-sm md:text-base lg:text-lg max-w-md">{heroCourse.description}</p>
                     <div className="mt-6 flex items-center space-x-3">
                         {heroCourse.heroWatchButtonLink && (
-                            <Link to={heroCourse.heroWatchButtonLink} className="flex items-center justify-center bg-white text-black font-semibold px-6 py-2 rounded hover:bg-gray-200 transition text-2xl">
-                                <PlayIcon isHero />
+                            <Link to={heroCourse.heroWatchButtonLink} className="flex items-center justify-center bg-white text-black font-semibold px-8 py-3 rounded hover:bg-gray-200 transition text-2xl">
+                                <PlayIcon className="w-7 h-7" />
                                 <span className="ml-3">Assistir</span>
                             </Link>
                         )}
