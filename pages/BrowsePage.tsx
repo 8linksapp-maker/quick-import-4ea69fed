@@ -529,4 +529,11 @@ const BrowsePage: React.FC = () => {
                     onClose={handleCloseDetailModal}
                     onLessonClick={handleNavigateToLesson} 
                     isLoading={isDetailLoading}
-                    initialModu
+                    initialModuleId={detailModalCourse.initialModuleId}
+                />
+            )}
+        </>
+    );
+};
+
+export default BrowsePage;
