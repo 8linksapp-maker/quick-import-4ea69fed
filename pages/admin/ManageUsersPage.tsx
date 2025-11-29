@@ -297,6 +297,12 @@ const ManageUsersPage: React.FC = () => {
                             value={editedUser.email || ''}
                             onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
                         />
+                        <InputField
+                            label="New Password"
+                            type="password"
+                            placeholder="Leave blank to keep current password"
+                            onChange={(e) => setEditedUser({ ...editedUser, password: e.target.value })}
+                        />
                         <div className="mb-4">
                             <label className="block text-white text-sm font-bold mb-2" htmlFor="role">
                                 Role
