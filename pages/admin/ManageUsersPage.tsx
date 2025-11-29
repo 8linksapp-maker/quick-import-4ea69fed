@@ -3,6 +3,7 @@ import ConfirmModal from '../../components/admin/ConfirmModal';
 import Modal from '../../components/Modal';
 import InputField from '../../components/InputField';
 import { supabase } from '../../src/supabaseClient';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 interface User {
     id: string;
@@ -15,6 +16,7 @@ interface User {
 }
 
 const ManageUsersPage: React.FC = () => {
+    useDocumentTitle('Admin: Gerenciar Usuários');
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -223,7 +225,8 @@ const ManageUsersPage: React.FC = () => {
                 <h2 className="text-2xl md:text-3xl font-bold">Gerenciar Usuários</h2>
                 <button onClick={openAddModal} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Adicionar Usuário</button>
             </div>
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg overflow-hidden">
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-white/10">
                         <tr>
@@ -247,6 +250,27 @@ const ManageUsersPage: React.FC = () => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-4">
+                {users.map((user) => (
+                    <div key={user.id} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg p-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-lg text-white">{user.user_metadata?.name ?? 'No Name'}</h3>
+                                <p className="text-sm text-gray-300">{user.email}</p>
+                            </div>
+                            <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                                <button onClick={() => openEditModal(user)} className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">Edit</button>
+                                <button onClick={() => openDeleteModal(user)} className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors">Delete</button>
+                            </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-white/10">
+                             <p className="text-sm text-gray-300"><span className="font-semibold text-white">Role:</span> {user.user_metadata?.role ?? 'No Role'}</p>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {isDeleteModalOpen && (
