@@ -461,15 +461,15 @@ const BrowsePage: React.FC = () => {
                     <p className="mt-4 text-sm md:text-base lg:text-lg max-w-md">{heroCourse.description}</p>
                     <div className="mt-6 flex items-center space-x-3">
                         {heroCourse.heroWatchButtonLink && (
-                            <Link to={heroCourse.heroWatchButtonLink} className="flex items-center justify-center bg-white text-black font-semibold px-8 py-3 rounded hover:bg-gray-200 transition text-2xl">
-                                <PlayIcon className="w-7 h-7" />
-                                <span className="ml-3">Assistir</span>
+                            <Link to={heroCourse.heroWatchButtonLink} className="flex items-center justify-center bg-white text-black font-semibold px-3 py-1.5 md:px-8 md:py-3 rounded hover:bg-gray-200 transition text-base md:text-2xl">
+                                <PlayIcon className="w-4 h-4 md:w-7 md:h-7" />
+                                <span className="ml-1 md:ml-3">Assistir</span>
                             </Link>
                         )}
                         {heroCourse.heroInfoButtonLink && (
-                            <Link to={heroCourse.heroInfoButtonLink} className="flex items-center justify-center bg-gray-500/70 text-white font-semibold px-6 py-2 rounded hover:bg-gray-500/90 transition text-2xl">
-                                <InfoIcon />
-                                <span className="ml-3">Mais Informações</span>
+                            <Link to={heroCourse.heroInfoButtonLink} className="flex items-center justify-center bg-gray-500/70 text-white font-semibold px-3 py-1.5 md:px-6 md:py-2 rounded hover:bg-gray-500/90 transition text-xs md:text-2xl">
+                                <InfoIcon className="w-6 h-6 md:w-9 md:h-9" />
+                                <span className="ml-0.5 md:ml-3">Mais Informações</span>
                             </Link>
                         )}
                     </div>
@@ -529,13 +529,4 @@ const BrowsePage: React.FC = () => {
                     onClose={handleCloseDetailModal}
                     onLessonClick={handleNavigateToLesson} 
                     isLoading={isDetailLoading}
-                    initialModuleId={detailModalCourse.initialModuleId}
-                />
-            )}
-        </>
-    );
-};
-
-
-
-export default BrowsePage;
+                    initialModu

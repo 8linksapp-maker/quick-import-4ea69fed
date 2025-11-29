@@ -58,11 +58,11 @@ const LoginPage: React.FC = () => {
                         </button>
                     </form>
                     <div className="login-help">
-                        <div>
+                        <label>
                             <input type="checkbox" id="remember-me" />
-                            <label htmlFor="remember-me">Lembre-se de mim</label>
-                        </div>
-                        <a href="#">Esqueceu a senha?</a>
+                            Lembre-se de mim
+                        </label>
+                        <a href="/forgot-password">Esqueceu a senha?</a>
                     </div>
                     <div className="login-signup">
                         Primeira vez aqui? <a href="#">Assine agora.</a>

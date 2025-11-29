@@ -65,6 +65,17 @@ serve(async (req) => {
         }
         userId = newUser.user.id;
         console.log(`Created new user with ID: ${userId}`);
+
+        // Send password set/reset email to the new user
+        console.log(`Sending password set email to new user: ${customerEmail}`);
+        const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(customerEmail, {
+            redirectTo: `${Deno.env.get('SITE_URL')}/reset-password`,
+        });
+
+        if (resetError) {
+            // Log this error but do not fail the entire webhook process
+            console.error(`Error sending password set email to ${customerEmail}:`, resetError);
+        }
     }
 
     // 2. Find the course associated with the Kiwify Product ID

@@ -22,6 +22,8 @@ import CourseContentEditorPage from './pages/admin/CourseContentEditorPage';
 
 import ProtectedRoute from '@/ProtectedRoute';
 import GuestRoute from '@/GuestRoute';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 const router = createBrowserRouter([
     {
@@ -29,6 +31,22 @@ const router = createBrowserRouter([
         element: (
             <GuestRoute>
                 <LoginPage />
+            </GuestRoute>
+        ),
+    },
+    {
+        path: '/forgot-password',
+        element: (
+            <GuestRoute>
+                <ForgotPasswordPage />
+            </GuestRoute>
+        ),
+    },
+    {
+        path: '/reset-password',
+        element: (
+            <GuestRoute>
+                <ResetPasswordPage />
             </GuestRoute>
         ),
     },

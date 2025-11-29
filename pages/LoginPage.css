@@ -67,9 +67,25 @@
 .login-help {
     display: flex;
     justify-content: space-between;
+    align-items: center; /* Align items vertically */
     font-size: 0.8rem;
     color: #b3b3b3;
 }
+
+.login-help label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.login-help input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px; /* More space */
+    position: relative;
+    top: 8px;
+}
+
 
 .login-help a {
     color: #b3b3b3;

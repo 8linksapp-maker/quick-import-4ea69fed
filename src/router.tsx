@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage';
 import MyCoursesPage from './pages/MyCoursesPage';
 import CourseOverviewPage from './pages/CourseOverviewPage';
 import LessonPage from './pages/LessonPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 const router = createBrowserRouter([
   {
@@ -14,6 +16,14 @@ const router = createBrowserRouter([
       {
         path: 'login',
         element: <LoginPage />,
+      },
+      {
+        path: 'forgot-password',
+        element: <ForgotPasswordPage />,
+      },
+      {
+        path: 'reset-password',
+        element: <ResetPasswordPage />,
       },
       {
         path: '',
