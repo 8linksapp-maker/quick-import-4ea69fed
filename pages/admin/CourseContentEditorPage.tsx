@@ -7,6 +7,7 @@ import AddModuleForm from '../../components/admin/forms/AddModuleForm';
 import EditModuleForm from '../../components/admin/forms/EditModuleForm';
 import AddLessonForm from '../../components/admin/forms/AddLessonForm';
 import EditLessonForm from '../../components/admin/forms/EditLessonForm';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 const CourseContentEditorPage: React.FC = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -20,6 +21,8 @@ const CourseContentEditorPage: React.FC = () => {
         action: 'add' | 'edit';
         id?: number;
     } | null>(null);
+
+    useDocumentTitle(course ? `Admin: Editando ${course.title}` : 'Editor de Conteúdo');
 
     useEffect(() => {
         const fetchCourse = async () => {

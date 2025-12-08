@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import InputField from '../../components/InputField';
 import { supabase } from '../../src/supabaseClient';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 interface Api {
     id: string;
@@ -11,6 +12,7 @@ interface Api {
 }
 
 const ManageApisPage: React.FC = () => {
+    useDocumentTitle('Admin: Gerenciar APIs');
     const [apis, setApis] = useState<Api[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);

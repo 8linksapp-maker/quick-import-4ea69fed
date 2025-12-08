@@ -9,132 +9,131 @@ serve(async (req) => {
 
   try {
     const payload = await req.json()
-    console.log("Kiwify webhook payload received:", payload);
-
-    // The actual order data is nested inside the 'order' object
-    const order = payload.order;
-    if (!order) {
-      throw new Error("Payload does not contain 'order' object");
-    }
-
-    // Check if the order status is 'paid'
-    if (order.order_status !== 'paid') {
-      return new Response(JSON.stringify({ message: 'Order status is not paid, ignoring.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
-    }
+    console.log("Payload received (partial):", JSON.stringify(payload).substring(0, 200));
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    let order = payload.order;
+    if (!order && payload.order_status) {
+        order = payload;
+    }
+
+    if (!order) {
+      console.error("Missing 'order' object.");
+      return new Response(JSON.stringify({ error: "Missing 'order'" }), { status: 400, headers: corsHeaders });
+    }
+
+    if (order.order_status !== 'paid') {
+      console.log(`Status: ${order.order_status}. Ignored.`);
+      return new Response(JSON.stringify({ message: 'Ignored' }), { status: 200, headers: corsHeaders });
+    }
+
     const customerEmail = order.Customer.email.replace(/\s/g, '');
-    const kiwifyProductId = order.Product.product_id
-    console.log(`Processing paid order for email: ${customerEmail} and product ID: ${kiwifyProductId}`);
+    const customerName = order.Customer.full_name || order.Customer.first_name || 'Aluno Kiwify';
+    // Garantindo limpeza do ID
+    const kiwifyProductId = (order.Product.product_id || '').trim();
+    
+    console.log(`Processing: ${customerEmail} | ProductID: '${kiwifyProductId}'`);
 
-
-
-    // 1. Find or create the user
+    // 1. User Handling
     let userId: string;
-    const { data: existingUser, error: getUserError } = await supabaseClient
-        .from('users')
-        .select('id')
-        .eq('email', customerEmail)
-        .single();
 
-    if (getUserError && getUserError.code !== 'PGRST116') { // 'PGRST116' is "Row not found"
-        console.error("Error fetching user:", getUserError);
-        throw getUserError;
-    }
+    const { data: newUser, error: createUserError } = await supabaseClient.auth.admin.createUser({
+        email: customerEmail,
+        email_confirm: true,
+        app_metadata: { role: 'User' },
+        user_metadata: { 
+            name: customerName, 
+            role: 'User'
+        }
+    });
 
-    if (existingUser) {
-        userId = existingUser.id;
-        console.log(`Found existing user with ID: ${userId}`);
+    if (createUserError) {
+        console.log(`User exists/error: ${createUserError.message}. Retrieving...`);
+        const { data: linkData } = await supabaseClient.auth.admin.generateLink({
+            type: 'magiclink',
+            email: customerEmail
+        });
+
+        if (!linkData?.user) {
+             console.error("Failed to recover user.");
+             return new Response(JSON.stringify({ error: "User error" }), { status: 200, headers: corsHeaders });
+        }
+        userId = linkData.user.id;
     } else {
-        console.log(`User with email ${customerEmail} not found. Creating new user.`);
-        const { data: newUser, error: createUserError } = await supabaseClient.auth.admin.createUser({
-            email: customerEmail,
-            email_confirm: true, // Email is verified by purchase
-        });
-
-        if (createUserError) {
-            console.error("Error creating user:", createUserError);
-            throw createUserError;
-        }
         userId = newUser.user.id;
-        console.log(`Created new user with ID: ${userId}`);
-
-        // Send password set/reset email to the new user
-        console.log(`Sending password set email to new user: ${customerEmail}`);
-        const { error: resetError } = await supabaseClient.auth.resetPasswordForEmail(customerEmail, {
-            redirectTo: `${Deno.env.get('SITE_URL')}/reset-password`,
+        console.log(`User Created: ${userId}`);
+        
+        // CORREÇÃO AQUI: URL HARDCODED para garantir o redirecionamento correto
+        await supabaseClient.auth.resetPasswordForEmail(customerEmail, {
+            redirectTo: 'https://seoflix.vercel.app/reset-password',
         });
-
-        if (resetError) {
-            // Log this error but do not fail the entire webhook process
-            console.error(`Error sending password set email to ${customerEmail}:`, resetError);
-        }
     }
 
-    // 2. Find the course associated with the Kiwify Product ID
-    const { data: courseLink, error: courseLinkError } = await supabaseClient
+    // --- FORCE UPDATE METADATA ---
+    console.log(`FORCE UPDATING User ${userId} metadata...`);
+    await supabaseClient.auth.admin.updateUserById(userId, {
+        app_metadata: { role: 'User' }, 
+        user_metadata: { 
+            name: customerName, 
+            role: 'User',
+            source: 'kiwify_webhook',
+            updated_at_webhook: new Date().toISOString()
+        }
+    });
+
+    // 2. Course Linking
+    console.log(`Searching course for product '${kiwifyProductId}' in course_kiwify_products...`);
+    
+    const { data: courseLinks, error: mapError } = await supabaseClient
       .from('course_kiwify_products')
       .select('course_id')
       .eq('kiwify_product_id', kiwifyProductId)
-      .single()
+      .limit(1);
 
-    if (courseLinkError) {
-      console.error(`Error finding course link for kiwify_product_id ${kiwifyProductId}:`, courseLinkError);
-      throw courseLinkError
+    if (mapError) console.error("DB Error:", mapError);
+
+    const courseLink = courseLinks?.[0];
+
+    if (!courseLink) {
+        console.warn(`Product '${kiwifyProductId}' NOT FOUND in course_kiwify_products.`);
+        return new Response(JSON.stringify({ message: "User OK, Course Not Mapped" }), { status: 200, headers: corsHeaders });
     }
+
     const courseId = courseLink.course_id;
-    console.log(`Found course with ID: ${courseId}`);
+    console.log(`Found! Mapped to Course ID: ${courseId}`);
 
-    // 3. Upsert the subscription
-    const subscriptionData = {
-        user_id: userId,
-        course_id: courseId,
-        status: 'active',
-        start_date: new Date().toISOString(),
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
-    };
+    // 3. Subscription & Access
+    const accessUntil = order.Subscription?.customer_access?.access_until;
+    const endDate = accessUntil ? accessUntil : new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
 
-    const { error: subscriptionError } = await supabaseClient
-        .from('subscriptions')
-        .upsert(subscriptionData, { onConflict: 'user_id,course_id' });
+    await supabaseClient.from('subscriptions').upsert({
+            user_id: userId,
+            course_id: courseId,
+            status: 'active',
+            start_date: new Date().toISOString(),
+            end_date: endDate,
+        }, { onConflict: 'user_id,course_id' });
 
-    if (subscriptionError) {
-        console.error("Error upserting subscription:", subscriptionError);
-        throw subscriptionError
-    }
-    console.log("Subscription upserted successfully.");
-
-    // 4. Grant user access to the course (upsert)
-    const userCourseData = {
-        user_id: userId,
-        course_id: courseId,
-    };
-    const { error: userCourseError } = await supabaseClient
-        .from('user_courses')
-        .upsert(userCourseData, { onConflict: 'user_id,course_id' });
+    const { error: userCourseError } = await supabaseClient.from('user_courses').upsert({
+            user_id: userId,
+            course_id: courseId,
+        }, { onConflict: 'user_id,course_id' });
 
     if (userCourseError) {
-        console.error("Error upserting user_course:", userCourseError);
-        throw userCourseError
+        console.error("Access Grant Error:", userCourseError);
+        return new Response(JSON.stringify({ error: "Access Grant Error" }), { status: 500, headers: corsHeaders });
     }
-    console.log("User course access granted successfully.");
+    
+    console.log(`Access Granted Successfully to Course ${courseId}.`);
 
-    return new Response(JSON.stringify({ message: 'Webhook processed successfully' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    })
+    return new Response(JSON.stringify({ message: 'Success' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+
   } catch (error) {
-    console.error("Webhook processing failed:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    console.error("Exception:", error);
+    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
   }
 })

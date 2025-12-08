@@ -17,6 +17,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // DETECTAR INTENÇÃO DE RESETAR SENHA (mesmo antes da sessão carregar)
+        if (window.location.hash && window.location.hash.includes('type=recovery')) {
+             console.log("Recovery hash detected. Setting flag.");
+             localStorage.setItem('is_resetting_password', 'true');
+        }
+
         const getSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             setSession(session);
@@ -26,15 +32,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         getSession();
 
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
+
+            if (event === 'PASSWORD_RECOVERY') {
+                window.location.href = '/reset-password';
+            }
         });
 
         return () => {
             authListener.subscription.unsubscribe();
         };
     }, []);
+
+    // EFEITO EXTRA: Redirecionar se logado e com flag de reset
+    useEffect(() => {
+        if (session && localStorage.getItem('is_resetting_password') === 'true') {
+             console.log("Session active + Reset Flag detected. Redirecting to /reset-password");
+             localStorage.removeItem('is_resetting_password');
+             // Usando window.location para garantir reload limpo
+             window.location.href = '/reset-password';
+        }
+    }, [session]);
 
     const signOut = async () => {
         await supabase.auth.signOut();

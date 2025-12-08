@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../src/supabaseClient';
 import Modal from '../../components/Modal';
 import CourseEditor, { Course } from '../../components/admin/CourseEditor';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 const ManageCoursesPage: React.FC = () => {
+    useDocumentTitle('Admin: Gerenciar Cursos');
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

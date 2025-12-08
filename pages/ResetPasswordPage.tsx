@@ -2,8 +2,10 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../src/supabaseClient';
 import './LoginPage.css'; // Reusing styles
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 const ResetPasswordPage: React.FC = () => {
+    useDocumentTitle('Redefinir Senha');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
@@ -11,12 +13,22 @@ const ResetPasswordPage: React.FC = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // This is a simplified check. Supabase handles the token from the URL fragment automatically
-        // when the user lands on this page from the email link.
-        const hash = window.location.hash;
-        if (!hash.includes('access_token')) {
-             setError("Token de redefinição inválido ou ausente. Por favor, solicite um novo link.");
-        }
+        const checkSessionAndHash = async () => {
+            // Verifica se o usuário já está logado (o link mágico loga automaticamente)
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session) {
+                // Se já tem sessão, pode prosseguir (não precisa de hash na URL)
+                return;
+            }
+
+            // Se não tem sessão, PRECISA do hash
+            const hash = window.location.hash;
+            if (!hash.includes('access_token')) {
+                 setError("Token de redefinição inválido ou ausente. Por favor, solicite um novo link.");
+            }
+        };
+        checkSessionAndHash();
     }, []);
 
     const handlePasswordUpdate = async (e: FormEvent) => {

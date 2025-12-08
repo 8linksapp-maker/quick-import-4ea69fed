@@ -1,8 +1,10 @@
 import React, { useState, FormEvent } from 'react';
 import { supabase } from '../src/supabaseClient';
 import './LoginPage.css'; // Reusing login page styles for consistency
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 const ForgotPasswordPage: React.FC = () => {
+    useDocumentTitle('Recuperar Senha');
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);

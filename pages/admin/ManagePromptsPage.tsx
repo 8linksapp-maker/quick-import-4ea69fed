@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../src/supabaseClient';
 import InputField from '../../components/InputField';
 import Modal from '../../components/Modal';
 import { AddIcon as PlusIcon, SearchIcon, PencilIcon, TrashIcon, StarIcon } from '../../components/Icons';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 interface PromptData {
   id: number;
@@ -104,6 +104,7 @@ const PromptForm = ({ prompt, onPromptSaved, onCancel }) => {
 };
 
 const ManagePromptsPage = () => {
+  useDocumentTitle('Admin: Gerenciar Prompts');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [promptToEdit, setPromptToEdit] = useState<PromptData | null>(null);
   const [prompts, setPrompts] = useState<PromptData[]>([]);

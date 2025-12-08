@@ -72,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
     if (isLessonView) {
         return (
              <header className="fixed top-0 left-0 right-0 z-40 bg-[#181818] shadow-md">
-                 <div className="flex items-center justify-between px-4 md:px-8 py-2">
+                 <div className="flex items-center justify-between px-4 md:px-8 pt-4 pb-2">
                      <div className="flex items-center space-x-8">
                          <Link to="/">
                             <img src="/logo.svg" alt="SEOFLIX Logo" className="w-auto h-9 cursor-pointer" />
@@ -92,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({ view }) => {
 
     return (
         <header className={`fixed top-0 left-0 right-0 z-40 transition-colors duration-300 ${isScrolled || view === 'my_courses' || view === 'course_overview' ? 'bg-[#141414]' : 'bg-gradient-to-b from-black/70 to-transparent'}`}>
-            <div className="flex items-center justify-between px-4 md:px-16 py-2">
+            <div className="flex items-center justify-between px-4 md:px-16 pt-4 pb-2">
                 <div className="flex items-center space-x-8">
                     <Link to="/">
                                                     <img src="/logo.svg" alt="SEOFLIX Logo" className="w-auto h-9 cursor-pointer" />                    </Link>

@@ -3,8 +3,10 @@ import { useAuth } from '../src/AuthContext';
 import { supabase } from '../src/supabaseClient';
 import { PencilIcon } from '../components/Icons';
 import InputField from '../components/InputField';
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 const AccountSettingsPage: React.FC = () => {
+    useDocumentTitle('Configurações da Conta');
     const { user } = useAuth();
     const [editingField, setEditingField] = useState<'name' | 'password' | null>(null);
     

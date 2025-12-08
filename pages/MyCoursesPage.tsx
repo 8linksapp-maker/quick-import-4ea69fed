@@ -114,8 +114,10 @@ const MyCoursesGrid: React.FC = () => {
         </section>
     );
 }
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 const MyCoursesPage: React.FC = () => {
+    useDocumentTitle('Meus Cursos');
     return (
         <main className="pt-24 text-white">
             <MyCoursesGrid />

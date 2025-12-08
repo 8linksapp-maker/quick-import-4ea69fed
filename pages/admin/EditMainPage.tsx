@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../src/supabaseClient';
 import LibraryModal from '../../components/admin/LibraryModal';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 interface Course {
     id: string;
@@ -13,6 +14,7 @@ interface B2File {
 }
 
 const EditMainPage: React.FC = () => {
+    useDocumentTitle('Admin: Editar Página Principal');
     const [heroTitle, setHeroTitle] = useState('');
     const [heroDescription, setHeroDescription] = useState('');
     const [heroVideoUrl, setHeroVideoUrl] = useState('');

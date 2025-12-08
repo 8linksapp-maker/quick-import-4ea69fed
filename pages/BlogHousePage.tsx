@@ -10,8 +10,10 @@ import AddWpSiteForm from '../components/AddWpSiteForm';
 import WpDetails from '../components/WpDetails';
 import { WpData } from '../components/WpCard';
 import { supabase } from '../src/supabaseClient';
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 const BlogHousePage = () => {
+  useDocumentTitle('Blog House');
   const [activeTab, setActiveTab] = useState<'vps' | 'sites'>('vps');
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 

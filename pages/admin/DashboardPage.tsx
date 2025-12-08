@@ -1,6 +1,8 @@
 import React from 'react';
+import useDocumentTitle from '../../src/hooks/useDocumentTitle';
 
 const DashboardPage: React.FC = () => {
+    useDocumentTitle('Admin: Visão Geral');
     const stats = [
         { title: 'Total Users', value: '1,234' },
         { title: 'Total Courses', value: '56' },

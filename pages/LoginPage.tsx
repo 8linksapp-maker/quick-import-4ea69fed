@@ -3,8 +3,10 @@ import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../src/supabaseClient';
 import './LoginPage.css';
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 const LoginPage: React.FC = () => {
+    useDocumentTitle('Login');
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -15,7 +17,6 @@ const LoginPage: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         setError(null);
-
         const { error } = await supabase.auth.signInWithPassword({
             email,
             password,

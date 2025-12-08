@@ -10,6 +10,7 @@ import { supabase } from '../src/supabaseClient';
 import { getEmbedUrl, getVideoDetails } from '../src/videoUtils';
 import { useCourseAccess } from '../src/hooks/useCourseAccess';
 import { useAuth } from '../src/AuthContext';
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -26,7 +27,7 @@ const ChatInterface: React.FC<{ lessonId: string }> = ({ lessonId }) => {
                 const parsed = JSON.parse(savedMessages);
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     return parsed;
-                }
+                } 
             }
         } catch (error) {
             console.error("Failed to parse chat history from localStorage", error);
@@ -144,6 +145,8 @@ const LessonPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'description' | 'chat' | 'lessons'>('description');
     const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
     const { hasAccess, loading: accessLoading } = useCourseAccess(courseId);
+
+    useDocumentTitle(currentLesson ? currentLesson.title : 'Carregando aula...');
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const lastUpdateTime = useRef<number>(0);

@@ -7,6 +7,7 @@ import { supabase } from '../src/supabaseClient';
 import { useCourseAccess } from '../src/hooks/useCourseAccess';
 import { getVideoDetails } from '../src/videoUtils';
 import { useAuth } from '../src/AuthContext';
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 // Supabase-specific types
 interface SupabaseCourse {
@@ -23,6 +24,8 @@ const CourseOverviewPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const { hasAccess, loading: accessLoading } = useCourseAccess(courseId);
     const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+
+    useDocumentTitle(course ? course.title : 'Visão Geral do Curso');
 
     useEffect(() => {
         const fetchCourseData = async () => {

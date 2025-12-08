@@ -8,6 +8,7 @@ import Footer from '../components/Footer';
 import { supabase } from '../src/supabaseClient';
 import { useAuth } from '../src/AuthContext';
 import { getVideoDetails } from '../src/videoUtils';
+import useDocumentTitle from '../src/hooks/useDocumentTitle';
 
 type SupabaseCourse = { id: number; title: string; description: string; poster_url: string; instructor: string; category: string; created_at: string; };
 type SupabaseModule = { id: number; course_id: number; title: string; thumbnail_url: string; order: number; };
@@ -51,6 +52,7 @@ const getYouTubeId = (youtubeUrl: string) => {
 };
 
 const BrowsePage: React.FC = () => {
+    useDocumentTitle('Início');
     const navigate = useNavigate();
     const { user } = useAuth();
     const [detailModalCourse, setDetailModalCourse] = useState<(Course & { initialModuleId?: string }) | null>(null);
@@ -456,7 +458,7 @@ const BrowsePage: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent"></div>
                 </div>
                 
-                <div className="relative p-4 -mt-16 md:-mt-24 lg:absolute lg:mt-0 lg:bottom-[30%] lg:left-16 z-10 max-w-2xl">
+                <div className="relative p-4 -mt-32 md:-mt-24 lg:absolute lg:mt-0 lg:bottom-[30%] lg:left-16 z-10 max-w-2xl">
                     <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold">{heroCourse.title}</h1>
                     <p className="mt-4 text-sm md:text-base lg:text-lg max-w-md">{heroCourse.description}</p>
                     <div className="mt-6 flex items-center space-x-3">
@@ -468,7 +470,7 @@ const BrowsePage: React.FC = () => {
                         )}
                         {heroCourse.heroInfoButtonLink && (
                             <Link to={heroCourse.heroInfoButtonLink} className="flex items-center justify-center bg-gray-500/70 text-white font-semibold px-3 py-1.5 md:px-6 md:py-2 rounded hover:bg-gray-500/90 transition text-xs md:text-2xl">
-                                <InfoIcon className="w-6 h-6 md:w-9 md:h-9" />
+                                <InfoIcon className="w-6 h-6 md:w-11 md:h-11" />
                                 <span className="ml-0.5 md:ml-3">Mais Informações</span>
                             </Link>
                         )}
