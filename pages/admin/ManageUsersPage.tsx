@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BulkUserUpload from '../../components/admin/BulkUserUpload';
 import ConfirmModal from '../../components/admin/ConfirmModal';
 import Modal from '../../components/Modal';
 import InputField from '../../components/InputField';
@@ -225,52 +226,57 @@ const ManageUsersPage: React.FC = () => {
                 <h2 className="text-2xl md:text-3xl font-bold">Gerenciar Usuários</h2>
                 <button onClick={openAddModal} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Adicionar Usuário</button>
             </div>
-            {/* Desktop Table */}
-            <div className="hidden md:block bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-white/10">
-                        <tr>
-                            <th className="p-4 font-semibold">Name</th>
-                            <th className="p-4 font-semibold">Email</th>
-                            <th className="p-4 font-semibold">Role</th>
-                            <th className="p-4 font-semibold text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map((user, index) => (
-                            <tr key={user.id} className={`border-t border-white/10 ${index % 2 === 0 ? 'bg-transparent' : 'bg-white/5'}`}>
-                                <td className="p-4">{user.user_metadata?.name ?? 'No Name'}</td>
-                                <td className="p-4">{user.email}</td>
-                                <td className="p-4">{user.user_metadata?.role ?? 'No Role'}</td>
-                                <td className="p-4 text-right">
-                                    <button onClick={() => openEditModal(user)} className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors mr-4">Edit</button>
-                                    <button onClick={() => openDeleteModal(user)} className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors">Delete</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
 
-            {/* Mobile Cards */}
-            <div className="md:hidden space-y-4">
-                {users.map((user) => (
-                    <div key={user.id} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg p-4">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="font-bold text-lg text-white">{user.user_metadata?.name ?? 'No Name'}</h3>
-                                <p className="text-sm text-gray-300">{user.email}</p>
+            <BulkUserUpload />
+
+            <div className="mt-8">
+                {/* Desktop Table */}
+                <div className="hidden md:block bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-white/10">
+                            <tr>
+                                <th className="p-4 font-semibold">Name</th>
+                                <th className="p-4 font-semibold">Email</th>
+                                <th className="p-4 font-semibold">Role</th>
+                                <th className="p-4 font-semibold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {users.map((user, index) => (
+                                <tr key={user.id} className={`border-t border-white/10 ${index % 2 === 0 ? 'bg-transparent' : 'bg-white/5'}`}>
+                                    <td className="p-4">{user.user_metadata?.name ?? 'No Name'}</td>
+                                    <td className="p-4">{user.email}</td>
+                                    <td className="p-4">{user.user_metadata?.role ?? 'No Role'}</td>
+                                    <td className="p-4 text-right">
+                                        <button onClick={() => openEditModal(user)} className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors mr-4">Edit</button>
+                                        <button onClick={() => openDeleteModal(user)} className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors">Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="md:hidden space-y-4">
+                    {users.map((user) => (
+                        <div key={user.id} className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg shadow-lg p-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-bold text-lg text-white">{user.user_metadata?.name ?? 'No Name'}</h3>
+                                    <p className="text-sm text-gray-300">{user.email}</p>
+                                </div>
+                                <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                                    <button onClick={() => openEditModal(user)} className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">Edit</button>
+                                    <button onClick={() => openDeleteModal(user)} className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors">Delete</button>
+                                </div>
                             </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
-                                <button onClick={() => openEditModal(user)} className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">Edit</button>
-                                <button onClick={() => openDeleteModal(user)} className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors">Delete</button>
+                            <div className="mt-2 pt-2 border-t border-white/10">
+                                <p className="text-sm text-gray-300"><span className="font-semibold text-white">Role:</span> {user.user_metadata?.role ?? 'No Role'}</p>
                             </div>
                         </div>
-                        <div className="mt-2 pt-2 border-t border-white/10">
-                             <p className="text-sm text-gray-300"><span className="font-semibold text-white">Role:</span> {user.user_metadata?.role ?? 'No Role'}</p>
-                        </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
 
             {isDeleteModalOpen && (
