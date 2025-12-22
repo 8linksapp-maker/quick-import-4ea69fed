@@ -12,6 +12,12 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
+    proxy: {
+      '/functions': {
+        target: 'https://jqbauulslmeozqqlmjjc.supabase.co',
+        changeOrigin: true,
+      },
+    },
   },
   plugins: [react()],
   resolve: {
