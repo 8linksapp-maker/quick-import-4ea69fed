@@ -366,7 +366,8 @@ const LessonPage: React.FC = () => {
                     <div className="aspect-video bg-black">
                         <NetflixPlayer 
                             url={currentLesson.video_url} 
-                            title={displayTitle}
+                            shortTitle={currentLesson.title}
+                            longTitle={displayTitle}
                         />
                     </div>
                     <div className="p-8">

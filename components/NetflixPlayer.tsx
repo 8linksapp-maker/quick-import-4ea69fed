@@ -4,10 +4,11 @@ import { supabase } from '../src/supabaseClient';
 
 interface NetflixPlayerProps {
   url: string;
-  title: string;
+  shortTitle: string;
+  longTitle: string;
 }
 
-const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, title }) => {
+const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, shortTitle, longTitle }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -412,8 +413,9 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, title }) => {
             </div>
         </div>
 
-        <div className="relative flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between gap-2 md:gap-4">
+            {/* Left Controls */}
+            <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
                 <button onClick={handleTogglePlay} className="text-white p-2">
                     {isPlaying ? <PauseIcon /> : <PlayIcon />}
                 </button>
@@ -449,15 +451,22 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, title }) => {
                 </div>
             </div>
 
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-4 w-1/2 text-center">
-                <span className="text-white text-lg font-netflix-sans-medium truncate">
-                    {title}
+            {/* Center Title (Flexible) */}
+            <div className="flex-1 min-w-0 text-center px-2">
+                {/* Mobile Title */}
+                <span className="truncate md:hidden text-white text-xs font-netflix-sans-medium block">
+                    {shortTitle}
+                </span>
+                {/* Desktop Title */}
+                <span className="truncate hidden md:block text-white text-lg font-netflix-sans-medium">
+                    {longTitle}
                 </span>
             </div>
 
-            <div className="flex items-center space-x-4">
+            {/* Right Controls */}
+            <div className="flex items-center flex-shrink-0">
                 <button onClick={handleFullscreen} className="text-white p-2">
-                    {isFullscreen ? <FullscreenIcon /> : <FullscreenIcon />}
+                    {isFullscreen ? <MinimizeIcon /> : <FullscreenIcon />}
                 </button>
             </div>
         </div>
