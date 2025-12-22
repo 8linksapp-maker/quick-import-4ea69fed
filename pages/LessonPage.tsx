@@ -370,7 +370,7 @@ const LessonPage: React.FC = () => {
                         />
                     </div>
                     <div className="p-8">
-                        <div className="flex justify-between items-center mb-4">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
                             <h1 className="text-3xl font-bold">{currentLesson.title}</h1>
                             <div className="flex items-center space-x-2 flex-shrink-0">
                                 <button onClick={handleMarkAsComplete} disabled={isCompleted} className={`flex items-center justify-center px-3 py-2 rounded-md font-semibold transition-colors text-xs sm:text-sm ${isCompleted ? 'bg-green-600/50 text-white/70 cursor-not-allowed' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
@@ -402,7 +402,7 @@ const LessonPage: React.FC = () => {
                                     Aulas
                                 </button>
                             </div>
-                            <div className="py-6">
+                            <div className="p-6">
                                 {activeTab === 'description' && (
                                     <p className="text-gray-300">{currentLesson.description}</p>
                                 )}

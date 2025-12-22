@@ -22,13 +22,13 @@ const CourseCurriculum: React.FC<CourseCurriculumProps> = ({ modules, onLessonCl
 
     return (
         <div className="mt-10">
-            <div className="flex justify-between items-center mb-5">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-5">
                 <h2 className="text-2xl font-bold">Aulas</h2>
                 <div className="relative">
                     <select 
                         value={selectedModuleId || ''} 
                         onChange={handleModuleChange}
-                        className="bg-[#2a2a2a] border border-gray-600 rounded-md py-2 pl-4 pr-10 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-gray-500 cursor-pointer"
+                        className="bg-[#2a2a2a] border border-gray-600 rounded-md py-2 pl-4 pr-10 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-gray-500 cursor-pointer w-full md:max-w-xs"
                     >
                         {modules.map(module => (
                             <option key={module.id} value={module.id}>
