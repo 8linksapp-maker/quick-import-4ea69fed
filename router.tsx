@@ -64,12 +64,17 @@ const router = createBrowserRouter([
                 element: <MyCoursesPage />,
             },
             {
-                path: 'course/:courseId',
-                element: <CourseOverviewPage />,
-            },
-            {
-                path: 'course/:courseId/lesson/:lessonId',
-                element: <LessonPage />,
+                element: <ProductAccessRoute productId="8" salesPageUrl="/#my-courses" productName="o curso" />,
+                children: [
+                    {
+                        path: 'course/:courseId',
+                        element: <CourseOverviewPage />,
+                    },
+                    {
+                        path: 'course/:courseId/lesson/:lessonId',
+                        element: <LessonPage />,
+                    },
+                ]
             },
             {
                 path: 'account-settings',
