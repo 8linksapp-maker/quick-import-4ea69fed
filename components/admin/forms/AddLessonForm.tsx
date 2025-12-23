@@ -174,11 +174,8 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
         }
     };
 
-    const handleAttachmentFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const newFiles = Array.from(e.target.files);
-            setAttachmentFiles(prev => [...prev, ...newFiles].slice(0, 10));
-        }
+    const handleAttachmentFilesChange = (newFiles: File[]) => {
+        setAttachmentFiles(prev => [...prev, ...newFiles].slice(0, 10));
     };
 
     const handleTranscriptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -370,15 +367,55 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
                 finalReleaseDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             }
 
-            const { error: insertError } = await supabase.from('lessons').insert([{
+            const { data: newLesson, error: insertError } = await supabase.from('lessons').insert([{
                 module_id: moduleId, title, description, transcript,
                 video_url: videoUrlToSave,
                 thumbnail_url: newThumbnailUrl,
                 duration_seconds: duration,
                 release_days: finalReleaseDays,
                 order: newOrder,
-            }]);
+            }]).select().single();
+
             if (insertError) throw insertError;
+
+            console.log('DEBUG: attachmentFiles antes do upload:', attachmentFiles);
+
+            if (attachmentFiles.length > 0) {
+                setStatusText(`Enviando ${attachmentFiles.length} anexos...`);
+
+                const filePromises = attachmentFiles.map(file => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            // result includes the MIME type prefix, which we need to remove
+                            const base64 = (reader.result as string).split(',')[1];
+                            resolve({
+                                fileName: file.name,
+                                fileBody: base64,
+                                fileType: file.type,
+                            });
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                });
+                
+                const attachmentPayload = await Promise.all(filePromises);
+
+                const { error: attachmentError } = await supabase.functions.invoke('upload-lesson-attachment', {
+                    body: {
+                        lesson_id: newLesson.id,
+                        attachmentFiles: attachmentPayload,
+                    },
+                });
+
+                if (attachmentError) {
+                    // Even if attachments fail, the lesson was created. We should notify the user.
+                    // The error can be displayed, but we don't throw, as the primary action (lesson creation) was successful.
+                    console.error('Attachment upload failed:', attachmentError);
+                    setError(`A aula foi criada, mas falhou o envio dos anexos: ${attachmentError.message}. Você pode tentar adicioná-los editando a aula.`);
+                }
+            }
 
             setStatusText('Sucesso!');
             onLessonAdded();
@@ -505,7 +542,7 @@ const AddLessonForm: React.FC<AddLessonFormProps> = ({ moduleId, onLessonAdded, 
                             title="Drop here or selecione do computador"
                             subtitle="Você pode inserir arquivos dos tipos: png, jpg, gif, bmp, zip, rar, epub, xls, docx, ppt, pptx. Limite de máximo 10 arquivos com o máximo de 100 MB cada"
                             files={attachmentFiles}
-                            onFilesSelect={handleAttachmentFilesChange}
+                            onFilesSelect={handleAttachmentFilesChange} // Usar a nova prop
                             accept="*"
                             multiple
                         />

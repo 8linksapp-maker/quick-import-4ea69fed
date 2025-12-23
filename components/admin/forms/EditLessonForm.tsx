@@ -4,6 +4,14 @@ import KiwifyUploader from '../../KiwifyUploader';
 import ConfirmModal from '../ConfirmModal';
 import LibraryModal from '../LibraryModal';
 
+interface LessonAttachment {
+    id: string;
+    lesson_id: number;
+    file_name: string;
+    file_url: string;
+    created_at: string;
+}
+
 interface EditLessonFormProps {
     lessonId: number;
     onLessonUpdated: () => void;
@@ -107,6 +115,22 @@ const generateThumbnailFromUrl = (videoUrl: string, seekTime: number = 2): Promi
     });
 };
 
+const fileToBase64 = (file: File): Promise<{ fileName: string; fileBody: string; fileType: string }> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            resolve({
+                fileName: file.name,
+                fileBody: base64,
+                fileType: file.type,
+            });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
+
 
 const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdated, onCancel }) => {
     const [title, setTitle] = useState('');
@@ -124,6 +148,7 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
     const [thumbFile, setThumbFile] = useState<File | null>(null);
     const [customThumbPreview, setCustomThumbPreview] = useState<string | null>(null);
     const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+    const [existingAttachments, setExistingAttachments] = useState<LessonAttachment[]>([]); // New state
     const [transcript, setTranscript] = useState('');
     
     const [formLoading, setFormLoading] = useState(true);
@@ -133,34 +158,44 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
+    const [attachmentToDelete, setAttachmentToDelete] = useState<LessonAttachment | null>(null); // New state
+    const [isConfirmDeleteAttachmentModalOpen, setIsConfirmDeleteAttachmentModalOpen] = useState(false); // New state
     
-        useEffect(() => {
-            console.log('EditLessonForm useEffect: fetching lesson...');
-            const fetchLesson = async () => {
-                setFormLoading(true);
-                const { data, error } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
-                if (data) {
-                    console.log('EditLessonForm useEffect: Lesson data fetched:', data);
-                    setTitle(data.title);
-                    setDescription(data.description || '');
-                    setReleaseDays(data.release_days || 0);
-                    setTranscript(data.transcript || '');
-                    setCurrentVideoUrl(data.video_url || '');
-                    setCurrentThumbnailUrl(data.thumbnail_url || null);
-    
-                    if (data.release_days > 0) {
-                        setReleaseType('days');
-                    } else {
-                        setReleaseType('immediate');
-                    }
+    useEffect(() => {
+        console.log('EditLessonForm useEffect: fetching lesson...');
+        const fetchLessonAndAttachments = async () => {
+            setFormLoading(true);
+            const { data: lessonData, error: lessonError } = await supabase.from('lessons').select('*').eq('id', lessonId).single();
+            const { data: attachmentsData, error: attachmentsError } = await supabase.from('lesson_attachments').select('*').eq('lesson_id', lessonId); // Fetch attachments
+
+            if (lessonData) {
+                console.log('EditLessonForm useEffect: Lesson data fetched:', lessonData);
+                setTitle(lessonData.title);
+                setDescription(lessonData.description || '');
+                setReleaseDays(lessonData.release_days || 0);
+                setTranscript(lessonData.transcript || '');
+                setCurrentVideoUrl(lessonData.video_url || '');
+                setCurrentThumbnailUrl(lessonData.thumbnail_url || null);
+
+                if (lessonData.release_days > 0) {
+                    setReleaseType('days');
                 } else {
-                    console.error('EditLessonForm useEffect: Erro ao buscar dados da aula:', error);
-                    setError(error?.message || 'Failed to fetch lesson data.');
+                    setReleaseType('immediate');
                 }
-                setFormLoading(false);
-            };
-            fetchLesson();
-        }, [lessonId]);
+            } else {
+                console.error('EditLessonForm useEffect: Erro ao buscar dados da aula:', lessonError);
+                setError(lessonError?.message || 'Failed to fetch lesson data.');
+            }
+
+            if (attachmentsData) {
+                setExistingAttachments(attachmentsData); // Set existing attachments
+            } else {
+                console.error('EditLessonForm useEffect: Erro ao buscar anexos:', attachmentsError);
+            }
+            setFormLoading(false);
+        };
+        fetchLessonAndAttachments();
+    }, [lessonId]);
     
         const handleVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
             console.log('handleVideoFileSelect: Arquivo selecionado.', e.target.files?.[0]);
@@ -179,108 +214,142 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
             }
         };
         
-        const handleAttachmentFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            console.log('handleAttachmentFilesChange: Anexos selecionados.', e.target.files);
-            if (e.target.files) {
-                const newFiles = Array.from(e.target.files);
-                setAttachmentFiles(prev => [...prev, ...newFiles].slice(0, 10));
-            }
-        };
-    
-        const handleTranscriptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            console.log('handleTranscriptFileChange: Arquivo de transcrição selecionado.', e.target.files?.[0]);
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => setTranscript(event.target?.result as string);
-            reader.readAsText(file);
-        };
-    
-        const handleDirectUpload = async (
-            fileToUpload: File | Blob,
-            fileName: string,
-            onProgress: (progress: number) => void
-        ): Promise<string> => {
-            console.log('handleDirectUpload: Iniciado para fileName:', fileName, 'fileType:', fileToUpload.type);
-            const fileType = fileToUpload.type;
-    
-                    const { data, error: generateUrlError } = await supabase.functions.invoke('generate-upload-url', {
-                        body: {
-                            fileName: fileName,
-                            fileType: fileType,
-                        }
-                    });
-            
-                            if (generateUrlError) {
-                                console.error('handleDirectUpload: Erro em generate-upload-url:', generateUrlError);
-                                throw new Error(`Erro ao gerar URL de upload: ${generateUrlError.message}`);
-                            }            
-                            console.log('handleDirectUpload: URL de upload gerada:', data);
-                            const { uploadUrl, publicUrl } = data;
-    
-            if (!uploadUrl || !publicUrl) {
-                console.error('handleDirectUpload: URL de upload ou URL pública não recebida da função.');
-                throw new Error('URL de upload ou URL pública não recebida da função.');
-            }
-    
-            return new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open('PUT', uploadUrl);
-                xhr.setRequestHeader('Content-Type', fileType);
-    
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const progress = Math.round((event.loaded / event.total) * 100);
-                        onProgress(progress);
-                        // console.log('handleDirectUpload: Upload de:', fileName, 'progresso:', progress, '%'); // Too noisy
-                    }
-                };
-    
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        console.log('handleDirectUpload: Upload de:', fileName, 'finalizado com sucesso. Public URL:', publicUrl);
-                        resolve(publicUrl);
-                    } else {
-                        console.error('handleDirectUpload: Falha no upload direto para B2:', xhr.status, xhr.statusText);
-                        reject(new Error(`Falha no upload direto para B2: ${xhr.status} - ${xhr.statusText}`));
-                    }
-                };
-    
-                xhr.onerror = () => {
-                    console.error('handleDirectUpload: Erro de rede durante o upload direto para B2.');
-                    reject(new Error('Erro de rede durante o upload direto para B2.'));
-                };
-    
-                xhr.send(fileToUpload);
+    const handleAttachmentFilesChange = (newFiles: File[]) => {
+        setAttachmentFiles(prev => [...prev, ...newFiles].slice(0, 10));
+    };
+
+    const handleRemoveNewAttachment = (index: number) => {
+        setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleDeleteAttachment = async (attachment: LessonAttachment) => {
+        setAttachmentToDelete(attachment);
+        setIsConfirmDeleteAttachmentModalOpen(true);
+    };
+
+    const confirmDeleteAttachment = async () => {
+        if (!attachmentToDelete) return;
+
+        setIsProcessing(true);
+        setStatusText('Deletando anexo...');
+        setError(null);
+        setIsConfirmDeleteAttachmentModalOpen(false);
+
+        try {
+            const { error: deleteError } = await supabase.functions.invoke('delete-lesson-attachment', {
+                body: { attachment_id: attachmentToDelete.id }
             });
-        };
 
-        const getSanitizedBaseFileName = async () => {
-            console.log('getSanitizedBaseFileName: Iniciado.');
-            const { data: initialLessonData, error: lessonError } = await supabase.from('lessons').select('module_id').eq('id', lessonId).single();
-            if (lessonError || !initialLessonData) {
-                console.error('getSanitizedBaseFileName: Erro ao buscar aula:', lessonError);
-                throw new Error(`Falha ao buscar a aula: ${lessonError?.message}`);
+            if (deleteError) {
+                throw new Error(deleteError.message || 'Erro desconhecido ao deletar anexo.');
             }
-    
-            const { data: moduleData, error: moduleError } = await supabase.from('modules').select('title, course_id').eq('id', initialLessonData.module_id).single();
-            if (moduleError || !moduleData) {
-                console.error('getSanitizedBaseFileName: Erro ao buscar módulo:', moduleError);
-                throw new Error(`Falha ao buscar o módulo: ${moduleError?.message}`);
-            }
-    
-            const { data: courseData, error: courseError } = await supabase.from('courses').select('title').eq('id', moduleData.course_id).single();
-            if (courseError || !courseData) {
-                console.error('getSanitizedBaseFileName: Erro ao buscar curso:', courseError);
-                throw new Error(`Falha ao buscar o curso: ${courseError?.message}`);
-            }
-    
-            const sanitize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, '-');
-            const baseName = `${sanitize(courseData.title)}-${sanitize(moduleData.title)}-${sanitize(title || 'Aula')}`;
-            console.log('getSanitizedBaseFileName: baseFileName gerado:', baseName);
-            return baseName;
-        };
 
+            setExistingAttachments(prev => prev.filter(att => att.id !== attachmentToDelete.id));
+            setStatusText('Anexo deletado com sucesso!');
+
+        } catch (err: any) {
+            console.error("handleDeleteAttachment error:", err);
+            setError(`Falha ao deletar anexo: ${err.message}`);
+        } finally {
+            setIsProcessing(false);
+            setAttachmentToDelete(null);
+            setTimeout(() => setStatusText(''), 2000);
+        }
+    };
+
+    const handleTranscriptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log('handleTranscriptFileChange: Arquivo de transcrição selecionado.', e.target.files?.[0]);
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => setTranscript(event.target?.result as string);
+        reader.readAsText(file);
+    };
+        
+            const handleDirectUpload = async (
+                fileToUpload: File | Blob,
+                fileName: string,
+                onProgress: (progress: number) => void
+            ): Promise<string> => {
+                console.log('handleDirectUpload: Iniciado para fileName:', fileName, 'fileType:', fileToUpload.type);
+                const fileType = fileToUpload.type;
+        
+                        const { data, error: generateUrlError } = await supabase.functions.invoke('generate-upload-url', {
+                            body: {
+                                fileName: fileName,
+                                fileType: fileType,
+                            }
+                        });
+                
+                                if (generateUrlError) {
+                                    console.error('handleDirectUpload: Erro em generate-upload-url:', generateUrlError);
+                                    throw new Error(`Erro ao gerar URL de upload: ${generateUrlError.message}`);
+                                }            
+                                console.log('handleDirectUpload: URL de upload gerada:', data);
+                                const { uploadUrl, publicUrl } = data;
+        
+                if (!uploadUrl || !publicUrl) {
+                    console.error('handleDirectUpload: URL de upload ou URL pública não recebida da função.');
+                    throw new Error('URL de upload ou URL pública não recebida da função.');
+                }
+        
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', uploadUrl);
+                    xhr.setRequestHeader('Content-Type', fileType);
+        
+                    xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                            const progress = Math.round((event.loaded / event.total) * 100);
+                            onProgress(progress);
+                            // console.log('handleDirectUpload: Upload de:', fileName, 'progresso:', progress, '%'); // Too noisy
+                        }
+                    };
+        
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            console.log('handleDirectUpload: Upload de:', fileName, 'finalizado com sucesso. Public URL:', publicUrl);
+                            resolve(publicUrl);
+                        } else {
+                            console.error('handleDirectUpload: Falha no upload direto para B2:', xhr.status, xhr.statusText);
+                            reject(new Error(`Falha no upload direto para B2: ${xhr.status} - ${xhr.statusText}`));
+                        }
+                    };
+        
+                    xhr.onerror = () => {
+                        console.error('handleDirectUpload: Erro de rede durante o upload direto para B2.');
+                        reject(new Error('Erro de rede durante o upload direto para B2.'));
+                    };
+        
+                    xhr.send(fileToUpload);
+                });
+            };
+        
+            const getSanitizedBaseFileName = async () => {
+                console.log('getSanitizedBaseFileName: Iniciado.');
+                const { data: initialLessonData, error: lessonError } = await supabase.from('lessons').select('module_id').eq('id', lessonId).single();
+                if (lessonError || !initialLessonData) {
+                    console.error('getSanitizedBaseFileName: Erro ao buscar aula:', lessonError);
+                    throw new Error(`Falha ao buscar a aula: ${lessonError?.message}`);
+                }
+        
+                const { data: moduleData, error: moduleError } = await supabase.from('modules').select('title, course_id').eq('id', initialLessonData.module_id).single();
+                if (moduleError || !moduleData) {
+                    console.error('getSanitizedBaseFileName: Erro ao buscar módulo:', moduleError);
+                    throw new Error(`Falha ao buscar o módulo: ${moduleData?.message}`);
+                }
+        
+                const { data: courseData, error: courseError } = await supabase.from('courses').select('title').eq('id', moduleData.course_id).single();
+                if (courseError || !courseData) {
+                    console.error('getSanitizedBaseFileName: Erro ao buscar curso:', courseError);
+                    throw new Error(`Falha ao buscar o curso: ${courseError?.message}`);
+                }
+        
+                const sanitize = (str: string) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, '-');
+                const baseName = `${sanitize(courseData.title)}-${sanitize(moduleData.title)}-${sanitize(title || 'Aula')}`;
+                console.log('getSanitizedBaseFileName: baseFileName gerado:', baseName);
+                return baseName;
+            };
         const handleFileSelectFromLibrary = async (file: { key: string; url: string; }) => {
             console.log('handleFileSelectFromLibrary: Iniciado com arquivo:', file);
             setIsProcessing(true);
@@ -448,16 +517,43 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                 if (newDuration !== null) lessonData.duration_seconds = newDuration;
                 console.log('handleSubmit: Dados da aula para atualização:', lessonData);
     
-                const { error: updateError } = await supabase.from('lessons').update(lessonData).eq('id', lessonId);
-                if (updateError) {
-                    console.error('handleSubmit: Erro ao atualizar a aula:', updateError);
-                    throw updateError;
-                }
+                            const { error: updateError } = await supabase.from('lessons').update(lessonData).eq('id', lessonId);
+                            if (updateError) {
+                                console.error('handleSubmit: Erro ao atualizar a aula:', updateError);
+                                throw updateError;
+                            }
+                            
+                            // Handle new attachments upload
+                            if (attachmentFiles.length > 0) {
+                                setStatusText(`Enviando ${attachmentFiles.length} anexos...`);
+                                const attachmentPayload = await Promise.all(attachmentFiles.map(fileToBase64));
                 
-                setStatusText('Sucesso!');
-                console.log('handleSubmit: Aula atualizada com sucesso, chamando onLessonUpdated.');
-                onLessonUpdated();
-    
+                                const { data: attachmentData, error: attachmentError } = await supabase.functions.invoke('upload-lesson-attachment', {
+                                    body: {
+                                        lesson_id: lessonId,
+                                        attachmentFiles: attachmentPayload,
+                                    },
+                                });
+                
+                                if (attachmentError) {
+                                    console.error('Attachment upload failed:', attachmentError);
+                                    setError(`Falha ao enviar novos anexos: ${attachmentError.message}.`);
+                                } else {
+                                    console.log('Attachment upload successful. Supabase Function Response:', attachmentData); // Log the successful response
+                                    // Refresh existing attachments after successful upload of new ones
+                                    const { data: updatedAttachments, error: fetchAttachmentsError } = await supabase.from('lesson_attachments').select('*').eq('lesson_id', lessonId);
+                                    if (updatedAttachments) {
+                                        setExistingAttachments(updatedAttachments);
+                                        setAttachmentFiles([]); // Clear new attachments after successful upload
+                                    } else {
+                                        console.error('Failed to refetch attachments after upload:', fetchAttachmentsError);
+                                    }
+                                }
+                            }
+                
+                            setStatusText('Sucesso!');
+                            console.log('handleSubmit: Aula atualizada com sucesso, chamando onLessonUpdated.');
+                            onLessonUpdated();    
             } catch (err: any) {
                 console.error("handleSubmit: Erro detalhado:", err);
                 setError(`Falha no processo: ${err.message}`);
@@ -556,6 +652,15 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                     title="Confirmar Exclusão"
                     description="Você tem certeza que deseja deletar esta aula? Esta ação não pode ser desfeita."
                     confirmText="Sim, deletar aula"
+                    isLoading={isProcessing}
+                />
+                <ConfirmModal
+                    isOpen={isConfirmDeleteAttachmentModalOpen}
+                    onClose={() => setIsConfirmDeleteAttachmentModalOpen(false)}
+                    onConfirm={confirmDeleteAttachment}
+                    title="Confirmar Exclusão de Anexo"
+                    description={`Você tem certeza que deseja deletar o anexo "${attachmentToDelete?.file_name}"? Esta ação não pode ser desfeita.`}
+                    confirmText="Sim, deletar anexo"
                     isLoading={isProcessing}
                 />
                 <LibraryModal
@@ -686,16 +791,60 @@ const EditLessonForm: React.FC<EditLessonFormProps> = ({ lessonId, onLessonUpdat
                         <div className="p-6 rounded-lg">
                             <h3 className="text-lg font-semibold mb-1">Anexos</h3>
                             <p className="text-sm text-gray-400 mb-4">Você pode anexar até 10 arquivos</p>
+                            
+                            {existingAttachments.length > 0 && (
+                                <div className="mb-4">
+                                    <p className="block text-sm font-medium text-gray-300 mb-2">Anexos existentes:</p>
+                                    <ul className="space-y-2">
+                                        {existingAttachments.map((attachment) => (
+                                            <li key={attachment.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-md">
+                                                <a href={attachment.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                                                    {attachment.file_name}
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteAttachment(attachment)}
+                                                    className="text-red-500 hover:text-red-400 text-sm ml-4"
+                                                    disabled={isProcessing}
+                                                >
+                                                    Remover
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
                             <KiwifyUploader
                                 id="attachments-upload-edit"
                                 iconType="attachment"
                                 title="Drop here or selecione do computador"
                                 subtitle="Você pode inserir arquivos dos tipos: png, jpg, gif, bmp, zip, rar, epub, xls, docx, ppt, pptx. Limite de máximo 10 arquivos com o máximo de 100 MB cada"
                                 files={attachmentFiles}
-                                onFilesSelect={handleAttachmentFilesChange}
+                                onFilesSelect={handleAttachmentFilesChange} 
                                 accept="*"
                                 multiple
                             />
+                            {attachmentFiles.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="block text-sm font-medium text-gray-300 mb-2">Novos anexos a serem enviados:</p>
+                                    <ul className="space-y-2">
+                                        {attachmentFiles.map((file, index) => (
+                                            <li key={index} className="flex items-center justify-between bg-gray-700 p-3 rounded-md">
+                                                <span>{file.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveNewAttachment(index)}
+                                                    className="text-red-500 hover:text-red-400 text-sm ml-4"
+                                                    disabled={isProcessing}
+                                                >
+                                                    Remover
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                         <div className="p-6 rounded-lg">
                             <h3 className="text-lg font-semibold mb-1">Transcrição</h3>

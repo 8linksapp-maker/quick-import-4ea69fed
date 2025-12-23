@@ -111,10 +111,12 @@ const LessonPage: React.FC = () => {
     const { user } = useAuth();
     const [course, setCourse] = useState<Course | null>(null);
     const [currentLesson, setCurrentLesson] = useState<any | null>(null);
+    const [lessonAttachments, setLessonAttachments] = useState<any[]>([]); // New state for attachments
     const [displayTitle, setDisplayTitle] = useState<string>('');
     const [nextLesson, setNextLesson] = useState<Lesson | null>(null);
     const [loading, setLoading] = useState(true);
     const [isCompleted, setIsCompleted] = useState(false);
+    const [error, setError] = useState<string | null>(null); // Declare error state
     const [activeTab, setActiveTab] = useState<'description' | 'chat' | 'lessons'>('description');
     const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
     const { hasAccess, loading: accessLoading } = useCourseAccess(courseId);
@@ -122,95 +124,132 @@ const LessonPage: React.FC = () => {
     useDocumentTitle(currentLesson ? currentLesson.title : 'Carregando aula...');
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!courseId || !lessonId || !user) return;
-            setLoading(true);
-
-            let enrollmentDate: string | null = null;
-            const { data: subscriptionData } = await supabase
-                .from('subscriptions')
-                .select('start_date')
-                .eq('user_id', user.id)
-                .eq('course_id', courseId)
-                .single();
-
-            if (subscriptionData) {
-                enrollmentDate = subscriptionData.start_date;
-            }
-
-            const [lessonRes, courseRes, modulesRes] = await Promise.all([
-                supabase.from('lessons').select('*').eq('id', lessonId).single(),
-                supabase.from('courses').select('*').eq('id', courseId).single(),
-                supabase.from('modules').select('*, release_date, days_after_enrollment').eq('course_id', courseId).order('order')
-            ]);
-            
-            if (lessonRes.error || courseRes.error || modulesRes.error) {
-                console.error(lessonRes.error || courseRes.error || modulesRes.error);
-                setLoading(false);
-                return;
-            }
-            
-            const lessonData = lessonRes.data;
-            const courseData = courseRes.data;
-            const modulesData = modulesRes.data || [];
-
-            const moduleIds = modulesData.map(m => m.id);
-            const { data: lessonsData } = await supabase.from('lessons').select('*, description, thumbnail_url, duration_seconds').in('module_id', moduleIds).order('order');
-            
-            const lessonIds = (lessonsData || []).map(l => l.id);
-            const { data: progressData } = await supabase.from('user_lesson_progress').select('lesson_id, progress_seconds, total_duration_seconds').eq('user_id', user.id).in('lesson_id', lessonIds);
-            
-            const completedLessonIds = new Set<number>();
-            progressData?.forEach(p => {
-                if (p.progress_seconds && p.total_duration_seconds && p.progress_seconds >= p.total_duration_seconds * 0.95) {
-                    completedLessonIds.add(p.lesson_id);
-                }
-            });
-
-            const nestedModules: AppModule[] = await Promise.all(modulesData.map(async (module) => {
-                const { isLocked, availableOn } = checkModuleLock(module, enrollmentDate);
-
-                const lessonPromises = (lessonsData || []).filter(l => l.module_id === module.id).map(async (l) => {
-                    let duration = l.duration_seconds;
-                    let thumbnailUrl = l.thumbnail_url;
-                    if (!duration || !thumbnailUrl) {
-                        const details = await getVideoDetails(l.video_url);
-                        duration = duration ?? details.duration;
-                        thumbnailUrl = thumbnailUrl ?? details.thumbnailUrl;
-                    }
-                    const durationInMinutes = duration ? Math.round(duration / 60) : 1;
-                    return {
-                        id: l.id.toString(), title: l.title, duration: `${durationInMinutes > 0 ? durationInMinutes : 1}m`,
-                        completed: completedLessonIds.has(l.id), thumbnailUrl: thumbnailUrl || '',
-                        description: l.description || '', videoUrl: l.video_url,
+                    const fetchData = async () => {
+                        if (!courseId || !lessonId || !user) {
+                            setLoading(false);
+                            setError("Dados de curso ou aula incompletos.");
+                            return;
+                        }
+                        setLoading(true);
+                        setError(null); // Clear previous errors
+        
+                        let enrollmentDate: string | null = null;
+                        const { data: subscriptionData, error: subscriptionError } = await supabase
+                            .from('subscriptions')
+                            .select('start_date')
+                            .eq('user_id', user.id)
+                            .eq('course_id', courseId)
+                            .single();
+        
+                        if (subscriptionError && subscriptionError.code !== 'PGRST116') { // PGRST116 means 'no rows found' which is fine
+                            console.error("Erro ao buscar assinatura:", subscriptionError);
+                            setError("Erro ao buscar informações da assinatura.");
+                            setLoading(false);
+                            return;
+                        }
+                        if (subscriptionData) {
+                            enrollmentDate = subscriptionData.start_date;
+                        }
+        
+                        const [lessonRes, courseRes, modulesRes, attachmentsRes] = await Promise.all([
+                            supabase.from('lessons').select('*').eq('id', lessonId).single(),
+                            supabase.from('courses').select('*').eq('id', courseId).single(),
+                            supabase.from('modules').select('*, release_date, days_after_enrollment').eq('course_id', courseId).order('order'),
+                            supabase.from('lesson_attachments').select('*').eq('lesson_id', lessonId),
+                        ]);
+        
+                        if (lessonRes.error || courseRes.error || modulesRes.error) {
+                            const errorMessage = lessonRes.error?.message || courseRes.error?.message || modulesRes.error?.message || 'Erro desconhecido ao carregar aula.';
+                            console.error(lessonRes.error || courseRes.error || modulesRes.error);
+                            setError(`Falha ao buscar dados essenciais: ${errorMessage}`); // Set error message
+                            setLoading(false); // Ensure loading state is turned off
+                            return;
+                        }
+                        
+                        // Only proceed if essential data is valid
+                        const lessonData = lessonRes.data;
+                        const courseData = courseRes.data;
+                        const modulesData = modulesRes.data || [];
+                        const attachmentsData = attachmentsRes.data || []; // Handle attachment errors separately or just log
+        
+                        if (!lessonData || !courseData) {
+                            setError("Dados da aula ou curso não encontrados após busca.");
+                            setLoading(false);
+                            return;
+                        }
+        
+                        const moduleIds = modulesData.map(m => m.id);
+                        const { data: lessonsData, error: lessonsError } = await supabase.from('lessons').select('*, description, thumbnail_url, duration_seconds').in('module_id', moduleIds).order('order');
+                        
+                        if (lessonsError) {
+                            console.error("Erro ao buscar lessons para módulos:", lessonsError);
+                            setError(`Erro ao buscar detalhes das lições: ${lessonsError.message}`);
+                            setLoading(false);
+                            return;
+                        }
+        
+                        const lessonIds = (lessonsData || []).map(l => l.id);
+                        const { data: progressData, error: progressError } = await supabase.from('user_lesson_progress').select('lesson_id, progress_seconds, total_duration_seconds').eq('user_id', user.id).in('lesson_id', lessonIds);
+                        
+                        if (progressError) {
+                            console.error("Erro ao buscar progresso do usuário:", progressError);
+                            // This error might not be critical enough to block the lesson, but log it.
+                        }
+        
+                        const completedLessonIds = new Set<number>();
+                        progressData?.forEach(p => {
+                            if (p.progress_seconds && p.total_duration_seconds && p.progress_seconds >= p.total_duration_seconds * 0.95) {
+                                completedLessonIds.add(p.lesson_id);
+                            }
+                        });
+        
+                        const nestedModules: AppModule[] = await Promise.all(modulesData.map(async (module) => {
+                            const { isLocked, availableOn } = checkModuleLock(module, enrollmentDate);
+        
+                            const lessonPromises = (lessonsData || []).filter(l => l.module_id === module.id).map(async (l) => {
+                                let duration = l.duration_seconds;
+                                let thumbnailUrl = l.thumbnail_url;
+                                if (!duration || !thumbnailUrl) {
+                                    const details = await getVideoDetails(l.video_url); // This can also throw
+                                    duration = duration ?? details.duration;
+                                    thumbnailUrl = thumbnailUrl ?? details.thumbnailUrl;
+                                }
+                                const durationInMinutes = duration ? Math.round(duration / 60) : 1;
+                                return {
+                                    id: l.id.toString(), title: l.title, duration: `${durationInMinutes > 0 ? durationInMinutes : 1}m`,
+                                    completed: completedLessonIds.has(l.id), thumbnailUrl: thumbnailUrl || '',
+                                    description: l.description || '', videoUrl: l.video_url,
+                                };
+                            });
+                            const lessonsWithThumbnails = await Promise.all(lessonPromises);
+                            
+                            return { 
+                                id: module.id.toString(), title: module.title, lessons: lessonsWithThumbnails,
+                                isLocked,
+                                availableOn,
+                            };
+                        }));
+        
+                        const transformedCourse: Course = {
+                            id: courseData.id.toString(), title: courseData.title, modules: nestedModules,
+                            description: '', instructor: '', posterUrl: '', heroUrl: '', totalLessons: 0, duration: '', level: '', relevance: '', tags: [], year: 0, ageRating: '', seasons: 0, cast: [], genres: [], tagsDetail: [], episodes: {},
+                        };
+                        
+                        setDisplayTitle(`${courseData.title} A${lessonData.order} ${lessonData.title}`);
+                        setCurrentLesson(lessonData);
+                        setCourse(transformedCourse);
+                        setIsCompleted(completedLessonIds.has(parseInt(lessonId)));
+        
+                        if (attachmentsData) {
+                            setLessonAttachments(attachmentsData);
+                        } else {
+                            console.error('LessonPage useEffect: Erro ao buscar anexos:', attachmentsRes.error);
+                        }
+                        setLoading(false);
                     };
-                });
-                const lessonsWithThumbnails = await Promise.all(lessonPromises);
-                
-                return { 
-                    id: module.id.toString(), title: module.title, lessons: lessonsWithThumbnails,
-                    isLocked,
-                    availableOn,
-                };
-            }));
-
-            const transformedCourse: Course = {
-                id: courseData.id.toString(), title: courseData.title, modules: nestedModules,
-                description: '', instructor: '', posterUrl: '', heroUrl: '', totalLessons: 0, duration: '', level: '', relevance: '', tags: [], year: 0, ageRating: '', seasons: 0, cast: [], genres: [], tagsDetail: [], episodes: {},
-            };
-            
-            if (courseData && lessonData) {
-                setDisplayTitle(`${courseData.title} A${lessonData.order} ${lessonData.title}`);
-            }
-            setCurrentLesson(lessonData);
-            setCourse(transformedCourse);
-            setIsCompleted(completedLessonIds.has(parseInt(lessonId)));
-            setLoading(false);
-        };
-
-        fetchData();
-    }, [courseId, lessonId, user?.id]);
-
+        
+                    fetchData();
+                }, [courseId, lessonId, user?.id]);
     useEffect(() => {
         if (course && lessonId) {
             const next = findNextLesson(course, lessonId);
@@ -286,11 +325,34 @@ const LessonPage: React.FC = () => {
                             <div className="flex border-b border-gray-700">
                                 <button onClick={() => setActiveTab('description')} className={`py-2 px-4 text-sm font-medium transition-colors ${activeTab === 'description' ? 'border-b-2 border-red-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Descrição</button>
                                 <button onClick={() => setActiveTab('chat')} className={`py-2 px-4 text-sm font-medium transition-colors ${activeTab === 'chat' ? 'border-b-2 border-red-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Chat IA</button>
+                                <button onClick={() => setActiveTab('attachments')} className={`py-2 px-4 text-sm font-medium transition-colors ${activeTab === 'attachments' ? 'border-b-2 border-red-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Anexos</button>
                                 <button onClick={() => setActiveTab('lessons')} className={`py-2 px-4 text-sm font-medium transition-colors lg:hidden ${activeTab === 'lessons' ? 'border-b-2 border-red-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Aulas</button>
                             </div>
                             <div className="p-6">
                                 {activeTab === 'description' && (<p className="text-gray-300">{currentLesson.description}</p>)}
                                 {activeTab === 'chat' && (<ChatInterface lessonId={lessonId} />)}
+                                {activeTab === 'attachments' && (
+                                    <div className="space-y-4">
+                                        {lessonAttachments.length === 0 ? (
+                                            <p className="text-gray-400">Nenhum anexo disponível para esta aula.</p>
+                                        ) : (
+                                            <ul className="list-disc pl-5 space-y-2">
+                                                {lessonAttachments.map((attachment: any) => (
+                                                    <li key={attachment.id}>
+                                                        <a 
+                                                            href={attachment.file_url} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="text-blue-400 hover:underline"
+                                                        >
+                                                            {attachment.file_name}
+                                                        </a>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
                                 {activeTab === 'lessons' && (
                                     <div className="lg:hidden">
                                         <h2 className="text-xl font-bold mb-4">{course.title}</h2>
