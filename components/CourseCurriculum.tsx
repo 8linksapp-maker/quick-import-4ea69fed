@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Module, Lesson } from './LoginCard';
-import { ChevronDownIcon } from './Icons';
+import { ChevronDownIcon, LockClosedIcon } from './Icons'; // Import LockClosedIcon
 
 interface CourseCurriculumProps {
     modules: Module[];
@@ -24,15 +24,15 @@ const CourseCurriculum: React.FC<CourseCurriculumProps> = ({ modules, onLessonCl
         <div className="mt-10">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-5">
                 <h2 className="text-2xl font-bold">Aulas</h2>
-                <div className="relative">
+                <div className="relative w-full md:max-w-xs">
                     <select 
                         value={selectedModuleId || ''} 
                         onChange={handleModuleChange}
-                        className="bg-[#2a2a2a] border border-gray-600 rounded-md py-2 pl-4 pr-10 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-gray-500 cursor-pointer w-full md:max-w-xs"
+                        className="bg-[#2a2a2a] border border-gray-600 rounded-md py-2 pl-4 pr-10 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-gray-500 cursor-pointer w-full"
                     >
                         {modules.map(module => (
-                            <option key={module.id} value={module.id}>
-                                {module.title}
+                            <option key={module.id} value={module.id} disabled={module.isLocked}>
+                                {module.title} {module.isLocked ? `(${module.availableOn})` : ''}
                             </option>
                         ))}
                     </select>
@@ -43,7 +43,15 @@ const CourseCurriculum: React.FC<CourseCurriculumProps> = ({ modules, onLessonCl
             </div>
 
             <div>
-                {selectedModule && selectedModule.lessons.map((lesson, index) => (
+                {selectedModule && selectedModule.isLocked && (
+                    <div className="text-center py-10 px-4 bg-black/20 rounded-lg">
+                        <LockClosedIcon className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-white">Módulo Bloqueado</h3>
+                        <p className="text-gray-400 mt-2">{selectedModule.availableOn}</p>
+                    </div>
+                )}
+
+                {selectedModule && !selectedModule.isLocked && selectedModule.lessons.map((lesson, index) => (
                     <div 
                         key={lesson.id}
                         className={`flex items-center gap-4 py-3 border-b-2 border-gray-800 cursor-pointer hover:bg-gray-800/60 rounded-lg px-2 -mx-2 ${activeLessonId === lesson.id ? 'bg-gray-700/70' : ''}`}

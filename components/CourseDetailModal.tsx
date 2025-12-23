@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { Course, Lesson } from './LoginCard';
-import { PlayIcon, AddIcon, LikeIcon, XMarkIcon } from './Icons';
+import { PlayIcon, AddIcon, LikeIcon, XMarkIcon, LockClosedIcon } from './Icons';
 import CourseCurriculum from './CourseCurriculum';
 import { getEmbedUrl } from '../src/videoUtils';
 
@@ -42,7 +42,7 @@ const CourseDetailModal: React.FC<CourseDetailModalProps> = ({ course, onClose, 
     }, [selectedModule, course.heroUrl]);
 
     const handlePlayClick = () => {
-        if (selectedModule && selectedModule.lessons.length > 0) {
+        if (selectedModule && !selectedModule.isLocked && selectedModule.lessons.length > 0) {
             onLessonClick(selectedModule.lessons[0]);
         }
     };
@@ -81,7 +81,7 @@ const CourseDetailModal: React.FC<CourseDetailModalProps> = ({ course, onClose, 
             >
                 {/* Hero Section */}
                 <div className="relative aspect-video bg-black rounded-t-lg">
-                    {heroVideo.url ? (
+                    {heroVideo.url && (!selectedModule || !selectedModule.isLocked) ? (
                         heroVideo.type === 'iframe' ? (
                             <iframe
                                 src={heroVideo.url}
@@ -109,12 +109,19 @@ const CourseDetailModal: React.FC<CourseDetailModalProps> = ({ course, onClose, 
                         <XMarkIcon />
                     </button>
                     <div className="absolute bottom-10 left-10">
-                        <h1 className="text-4xl font-bold mb-4">{course.title}</h1>
+                        <h1 className="text-4xl font-bold mb-4">{selectedModule?.title || course.title}</h1>
                         <div className="flex items-center space-x-3">
-                            <button onClick={handlePlayClick} className="flex items-center justify-center bg-white text-black font-bold px-6 py-2 rounded hover:bg-gray-200 transition text-lg">
-                                <PlayIcon isHero />
-                                <span className="ml-2">Assistir</span>
-                            </button>
+                            {selectedModule?.isLocked ? (
+                                <button disabled className="flex items-center justify-center bg-zinc-600 text-white/70 font-bold px-6 py-2 rounded text-lg cursor-not-allowed">
+                                    <LockClosedIcon className="w-6 h-6" />
+                                    <span className="ml-2">{selectedModule.availableOn}</span>
+                                </button>
+                            ) : (
+                                <button onClick={handlePlayClick} className="flex items-center justify-center bg-white text-black font-bold px-6 py-2 rounded hover:bg-gray-200 transition text-lg">
+                                    <PlayIcon className="w-7 h-7" />
+                                    <span className="ml-2">Assistir</span>
+                                </button>
+                            )}
                             <button className="w-11 h-11 flex items-center justify-center rounded-full border-2 border-gray-400 text-white hover:border-white transition-colors">
                                 <AddIcon />
                             </button>

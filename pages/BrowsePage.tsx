@@ -9,6 +9,8 @@ import { supabase } from '../src/supabaseClient';
 import { useAuth } from '../src/AuthContext';
 import { getVideoDetails } from '../src/videoUtils';
 import useDocumentTitle from '../src/hooks/useDocumentTitle';
+import { checkModuleLock } from '../src/dripUtils';
+import toast from 'react-hot-toast';
 
 type SupabaseCourse = { id: number; title: string; description: string; poster_url: string; instructor: string; category: string; created_at: string; };
 type SupabaseModule = { id: number; course_id: number; title: string; thumbnail_url: string; order: number; };
@@ -64,7 +66,7 @@ const BrowsePage: React.FC = () => {
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [durationsUpdated, setDurationsUpdated] = useState(false);
 
-    const [hoverState, setHoverState] = useState<{ status: 'hidden' | 'visible' | 'closing'; course: Course | null; rect: DOMRect | null; scrollY: number | null; }>({ status: 'hidden', course: null, rect: null, scrollY: null });
+    const [hoverState, setHoverState] = useState<{ status: 'hidden' | 'visible' | 'closing'; course: Course | null; rect: DOMRect | null; scrollY: number | null; isLocked: boolean; availableOn: string; }>({ status: 'hidden', course: null, rect: null, scrollY: null, isLocked: false, availableOn: '' });
     const enterTimeoutRef = useRef<number | null>(null);
     const leaveTimeoutRef = useRef<number | null>(null);
 
@@ -79,8 +81,31 @@ const BrowsePage: React.FC = () => {
 
     const handleMouseEnter = (course: Course, rect: DOMRect) => {
         clearTimeouts();
-        enterTimeoutRef.current = window.setTimeout(() => {
-            setHoverState({ status: 'visible', course, rect, scrollY: window.scrollY });
+        enterTimeoutRef.current = window.setTimeout(async () => {
+            const moduleId = course.cardKey?.replace('module-', '');
+            const moduleData = rawModules.find(m => m.id.toString() === moduleId);
+
+            if (!moduleData) {
+                setHoverState({ status: 'visible', course, rect, scrollY: window.scrollY, isLocked: false, availableOn: '' });
+                return;
+            }
+
+            let enrollmentDate: string | null = null;
+            if (user) {
+                const { data: subscriptionData } = await supabase
+                    .from('subscriptions')
+                    .select('start_date')
+                    .eq('user_id', user.id)
+                    .eq('course_id', moduleData.course_id)
+                    .single();
+                if (subscriptionData) {
+                    enrollmentDate = subscriptionData.start_date;
+                }
+            }
+            
+            const { isLocked, availableOn } = checkModuleLock(moduleData, enrollmentDate);
+            setHoverState({ status: 'visible', course, rect, scrollY: window.scrollY, isLocked, availableOn });
+
         }, 800);
     };
     
@@ -129,7 +154,7 @@ const BrowsePage: React.FC = () => {
                 if (configError) throw configError;
                 const config = configData.data;
 
-                const { data: coursesData, error: coursesError } = await supabase.from('courses').select('*');
+                const { data: coursesData, error: coursesError } = await supabase.from('courses').select('*').eq('is_listed', true);
                 if (coursesError) throw coursesError;
                 setRawCourses(coursesData || []);
 
@@ -272,10 +297,43 @@ const BrowsePage: React.FC = () => {
         }
     }, [isLoading, carousels, rawLessons, durationsUpdated]);
 
-    const handleNavigateToOverview = (course: Course) => {
+    const handleNavigateToOverview = async (course: Course) => {
+        // course object here is actually a module formatted as a course
+        const moduleId = course.cardKey?.replace('module-', '');
+        const moduleData = rawModules.find(m => m.id.toString() === moduleId);
+
+        if (!moduleData) {
+            console.error("Could not find module data for clicked card.");
+            // Fallback navigation to the parent course page
+            navigate(`/course/${course.id}`);
+            return;
+        }
+
+        let enrollmentDate: string | null = null;
+        if (user) {
+            const { data: subscriptionData } = await supabase
+                .from('subscriptions')
+                .select('start_date')
+                .eq('user_id', user.id)
+                .eq('course_id', moduleData.course_id)
+                .single();
+            if (subscriptionData) {
+                enrollmentDate = subscriptionData.start_date;
+            }
+        }
+        
+        const { isLocked, availableOn } = checkModuleLock(moduleData, enrollmentDate);
+
+        if (isLocked) {
+            toast.error(`Este módulo será liberado ${availableOn.toLowerCase()}.`);
+            return;
+        }
+
+        // If not locked, proceed to lesson
         if (course.firstLessonId) {
             navigate(`/course/${course.id}/lesson/${course.firstLessonId}`);
         } else {
+            // Fallback if no first lesson is found
             navigate(`/course/${course.id}`);
         }
     };
@@ -304,6 +362,22 @@ const BrowsePage: React.FC = () => {
             return;
         }
 
+        // --- INÍCIO DA NOVA LÓGICA ---
+        // 1. Buscar a data de inscrição do usuário
+        let enrollmentDate: string | null = null;
+        if (user) {
+            const { data: subscriptionData } = await supabase
+                .from('subscriptions')
+                .select('start_date')
+                .eq('user_id', user.id)
+                .eq('course_id', parentCourse.id)
+                .single();
+            if (subscriptionData) {
+                enrollmentDate = subscriptionData.start_date;
+            }
+        }
+
+        // 2. Buscar módulos e lições
         const courseModules = rawModules.filter(m => m.course_id === parentCourse.id);
         const courseLessonIds = rawLessons.filter(l => courseModules.some(m => m.id === l.module_id)).map(l => l.id);
 
@@ -322,20 +396,26 @@ const BrowsePage: React.FC = () => {
                 });
             }
         }
+        
+        // 3. Construir módulos e aplicar a trava
+        const structuredModules: AppModule[] = await Promise.all(courseModules.map(async (module) => {
+            const { isLocked, availableOn } = checkModuleLock(module, enrollmentDate); // Usando o "cérebro"
 
-        const structuredModules: Module[] = await Promise.all(courseModules.map(async (module) => {
             const lessonPromises = rawLessons
                 .filter(l => l.module_id === module.id)
                 .sort((a, b) => a.order - b.order)
                 .map(async (lesson) => {
                     let thumbnailUrl = lesson.thumbnail_url;
-                    if (!thumbnailUrl) {
+                    let duration = lesson.duration_seconds;
+
+                    // Fallback to fetch details only if necessary
+                    if (!thumbnailUrl || !duration) {
                         const details = await getVideoDetails(lesson.video_url);
-                        thumbnailUrl = details.thumbnailUrl;
+                        thumbnailUrl = thumbnailUrl ?? details.thumbnailUrl;
+                        duration = duration ?? details.duration;
                     }
                     
-                    const details = await getVideoDetails(lesson.video_url);
-                    const durationInMinutes = details.duration ? Math.round(details.duration / 60) : 1;
+                    const durationInMinutes = duration ? Math.round(duration / 60) : 1;
                     const durationString = `${durationInMinutes > 0 ? durationInMinutes : 1}m`;
                     const progressInfo = lessonProgressMap.get(lesson.id);
                     return {
@@ -356,8 +436,11 @@ const BrowsePage: React.FC = () => {
                 id: module.id.toString(),
                 title: module.title,
                 lessons: moduleLessons,
+                isLocked,
+                availableOn,
             };
         }));
+        // --- FIM DA NOVA LÓGICA ---
 
         setDetailModalCourse(prevCourse => ({
             ...(prevCourse as Course & { initialModuleId?: string }),

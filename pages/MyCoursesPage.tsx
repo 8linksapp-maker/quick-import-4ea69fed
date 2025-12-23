@@ -42,7 +42,8 @@ const MyCoursesGrid: React.FC = () => {
                 const { data: coursesData, error: coursesError } = await supabase
                     .from('courses')
                     .select('*')
-                    .in('id', courseIds);
+                    .in('id', courseIds)
+                    .eq('is_listed', true);
 
                 if (coursesError) throw coursesError;
 

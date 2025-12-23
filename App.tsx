@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Header from './components/Header';
+import { Toaster } from 'react-hot-toast';
 
 const App: React.FC = () => {
     const location = useLocation();
@@ -19,6 +20,15 @@ const App: React.FC = () => {
 
     return (
         <div className="bg-[#141414] text-white min-h-screen">
+            <Toaster 
+                position="top-center"
+                toastOptions={{
+                    style: {
+                        background: '#333',
+                        color: '#fff',
+                    },
+                }}
+            />
             <Header 
                 view={currentView}
             />

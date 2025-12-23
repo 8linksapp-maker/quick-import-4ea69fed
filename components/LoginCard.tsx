@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { getEmbedUrl } from '../src/videoUtils';
-import { PlayIcon, AddIcon, LikeIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, AgeRatingIcon } from './Icons';
+import { PlayIcon, AddIcon, LikeIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon, AgeRatingIcon, LockClosedIcon } from './Icons';
 
 // --- Type Definitions ---
 export interface Lesson {
@@ -19,6 +19,8 @@ export interface Module {
     id: string;
     title: string;
     lessons: Lesson[];
+    isLocked?: boolean;
+    availableOn?: string;
 }
 export interface Episode {
     number: number;
@@ -73,8 +75,10 @@ interface HoverCardProps {
     isClosing: boolean;
     onCloseAnimationEnd: () => void;
     onMouseEnter: () => void;
+    isLocked: boolean;
+    availableOn: string;
 }
-export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onCardClick, onShowDetails, startClosing, isClosing, onCloseAnimationEnd, onMouseEnter }) => {
+export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onCardClick, onShowDetails, startClosing, isClosing, onCloseAnimationEnd, onMouseEnter, isLocked, availableOn }) => {
     const portalRoot = document.getElementById('modal-root');
     const [isMounted, setIsMounted] = useState(false);
     const [isVideoLoading, setIsVideoLoading] = useState(true);
@@ -136,21 +140,29 @@ export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onC
                 <div className="shadow-[0_15px_60px_-10px_rgba(0,0,0,0.6)] rounded-md">
                     <div className="bg-[#141414] rounded-md overflow-hidden w-full flex flex-col">
                         <div className="w-full aspect-video bg-black relative">
-                            {video.url && (
+                            {video.url && !isLocked ? (
                                 video.type === 'iframe' ? (
                                     <iframe src={video.url} className="w-full h-full" frameBorder="0" allow="autoplay; fullscreen; picture-in-picture"></iframe>
                                 ) : (
                                     <video key={course.previewVideoUrl} ref={videoRef} src={video.url} autoPlay muted playsInline className="w-full h-full object-cover" onPlaying={() => setIsVideoLoading(false)} onTimeUpdate={handleTimeUpdate} />
                                 )
+                            ) : (
+                                <img src={course.posterUrl} alt={course.title} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isVideoLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
                             )}
-                            <img src={course.posterUrl} alt={course.title} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isVideoLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
+                            <img src={course.posterUrl} alt={course.title} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isVideoLoading || isLocked ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
                         </div>
                         <div className="p-3 space-y-3">
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center space-x-2">
-                                    <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full bg-white text-black" onClick={(e) => { e.stopPropagation(); onCardClick(course); }}>
-                                        <PlayIcon className="w-4 h-4" />
-                                    </button>
+                                    {isLocked ? (
+                                        <button disabled className="w-8 h-8 p-1 flex items-center justify-center rounded-full bg-gray-500 text-white cursor-not-allowed" title={availableOn}>
+                                            <LockClosedIcon className="w-4 h-4" />
+                                        </button>
+                                    ) : (
+                                        <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full bg-white text-black" onClick={(e) => { e.stopPropagation(); onCardClick(course); }}>
+                                            <PlayIcon className="w-4 h-4" />
+                                        </button>
+                                    )}
                                     <button className="w-8 h-8 p-1 flex items-center justify-center rounded-full border border-gray-400 text-white hover:border-white" onClick={(e) => { e.stopPropagation(); console.log('add'); }}>
                                         <CheckIcon />
                                     </button>
@@ -163,7 +175,12 @@ export const HoverCard: React.FC<HoverCardProps> = ({ course, rect, scrollY, onC
                                 </button>
                             </div>
                             <div className="text-white space-y-2">
-                                {course.isContinueWatching ? (
+                                {isLocked ? (
+                                    <>
+                                        <p className="font-bold text-base text-red-500">Módulo Bloqueado</p>
+                                        <p className="text-xs text-gray-400">{availableOn}</p>
+                                    </>
+                                ) : course.isContinueWatching ? (
                                     <>
                                         <p className="font-bold text-base">{`M${course.moduleOrder}:A${course.lessonOrder} ${course.lessonTitle}`}</p>
                                         <div className="w-full bg-zinc-600 rounded-full h-1 overflow-hidden">

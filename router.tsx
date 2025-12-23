@@ -22,6 +22,7 @@ import CourseContentEditorPage from './pages/admin/CourseContentEditorPage';
 
 import ProtectedRoute from '@/ProtectedRoute';
 import GuestRoute from '@/GuestRoute';
+import ProductAccessRoute from '@/ProductAccessRoute';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
@@ -75,8 +76,13 @@ const router = createBrowserRouter([
                 element: <AccountSettingsPage />,
             },
             {
-                path: 'blog-house',
-                element: <BlogHousePage />,
+                element: <ProductAccessRoute productId="8" salesPageUrl="https://www.bloghouse.com.br/" productName="Blog House" />,
+                children: [
+                    {
+                        path: 'blog-house',
+                        element: <BlogHousePage />,
+                    },
+                ]
             },
         ],
     },
