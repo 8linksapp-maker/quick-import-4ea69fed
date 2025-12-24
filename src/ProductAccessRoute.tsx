@@ -1,12 +1,12 @@
 import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useCourseAccess } from './hooks/useCourseAccess';
 import { LockClosedIcon } from '../components/Icons'; // Importando um ícone de cadeado
 
 interface ProductAccessRouteProps {
   productName?: string;
-  productId: string;
+  productId?: string; // Tornar opcional
   salesPageUrl: string;
 }
 
@@ -30,12 +30,18 @@ const BlockedAccessPage: React.FC<{ salesPageUrl: string, productName?: string }
     );
 };
 
-const ProductAccessRoute: React.FC<ProductAccessRouteProps> = ({ productId, salesPageUrl, productName }) => {
+const ProductAccessRoute: React.FC<ProductAccessRouteProps> = ({ productId: propProductId, salesPageUrl, productName }) => {
   const { user } = useAuth();
   const location = useLocation();
+  const params = useParams();
+  
+  // Prioriza o ID da prop, mas usa o da URL se a prop não for fornecida.
+  const dynamicProductId = params.courseId;
+  const productId = propProductId ?? dynamicProductId;
+
   const { hasAccess, loading: accessLoading } = useCourseAccess(productId);
 
-  if (accessLoading) {
+  if (accessLoading || !productId) { // Adicionado !productId para cobrir casos de carregamento inicial
     return (
       <div className="bg-[#141414] min-h-screen text-white flex justify-center items-center">
         Verificando seu acesso...

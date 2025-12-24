@@ -27,37 +27,48 @@ const ManageUsersPage: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [editedUser, setEditedUser] = useState<User | null>(null);
     const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'User' });
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [courses, setCourses] = useState<any[]>([]);
 
-    useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const { data, error } = await supabase.functions.invoke('get-users');
-                if (error) {
-                    throw error;
-                }
-                setUsers(data.users || []);
-            } catch (error: any) {
-                setError(error.message);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchUsers = async (query = '') => {
+        setLoading(true);
+        setError(null);
+        try {
+            const { data, error } = await supabase.functions.invoke('get-users', {
+                body: { query }
+            });
+            if (error) throw error;
+            setUsers(data.users || []);
+        } catch (error: any) {
+            setError(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
+        // Debounce logic for searching
+        const handler = setTimeout(() => {
+            fetchUsers(searchTerm);
+        }, 300); // 300ms delay
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchTerm]);
+
+    useEffect(() => {
+        // Fetch courses once on mount
         const fetchCourses = async () => {
             try {
                 const { data, error } = await supabase.functions.invoke('get-courses');
-                if (error) {
-                    throw error;
-                }
+                if (error) throw error;
                 setCourses(data.data || []);
             } catch (error: any) {
                 console.error('Error fetching courses:', error.message);
             }
         };
-
-        fetchUsers();
         fetchCourses();
     }, []);
 
@@ -225,6 +236,18 @@ const ManageUsersPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl md:text-3xl font-bold">Gerenciar Usuários</h2>
                 <button onClick={openAddModal} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Adicionar Usuário</button>
+            </div>
+
+            <div className="mb-6">
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder="Buscar por nome ou email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="flex-grow bg-white/10 border border-white/20 rounded-md py-2 px-3 focus:ring-red-500 focus:border-red-500"
+                    />
+                </div>
             </div>
 
             <BulkUserUpload />
