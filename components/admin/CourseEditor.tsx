@@ -11,8 +11,9 @@ export interface Course {
     instructor: string | null;
     category: string | null;
     poster_url: string | null;
+    sales_page_url?: string; // ADDED
     is_for_sale?: boolean;
-    kiwify_product_ids?: string[]; // Changed to array
+    kiwify_product_ids?: string[];
     price?: number;
 }
 
@@ -34,8 +35,9 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
     const [instructor, setInstructor] = useState('');
     const [category, setCategory] = useState('');
     const [posterUrl, setPosterUrl] = useState<string | null>(null);
+    const [salesPageUrl, setSalesPageUrl] = useState(''); // ADDED
     const [isForSale, setIsForSale] = useState(false);
-    const [kiwifyProductIds, setKiwifyProductIds] = useState<string[]>([]); // Changed to array
+    const [kiwifyProductIds, setKiwifyProductIds] = useState<string[]>([]);
     const [price, setPrice] = useState(0);
     
     const [loading, setLoading] = useState(false);
@@ -51,8 +53,9 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
             setInstructor(courseToEdit.instructor || '');
             setCategory(courseToEdit.category || '');
             setPosterUrl(courseToEdit.poster_url || '');
+            setSalesPageUrl(courseToEdit.sales_page_url || ''); // ADDED
             setIsForSale(courseToEdit.is_for_sale || false);
-            setKiwifyProductIds(courseToEdit.kiwify_product_ids || []); // Changed to array
+            setKiwifyProductIds(courseToEdit.kiwify_product_ids || []);
             setPrice(courseToEdit.price || 0);
         } else {
             // Reset form when adding a new course
@@ -61,8 +64,9 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
             setInstructor('');
             setCategory('');
             setPosterUrl(null);
+            setSalesPageUrl(''); // ADDED
             setIsForSale(false);
-            setKiwifyProductIds([]); // Changed to array
+            setKiwifyProductIds([]);
             setPrice(0);
         }
     }, [courseToEdit]);
@@ -99,9 +103,10 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
             description, 
             instructor, 
             category, 
-            poster_url: posterUrl, 
+            poster_url: posterUrl,
+            sales_page_url: salesPageUrl, // ADDED
             is_for_sale: isForSale, 
-            kiwify_product_ids: kiwifyProductIds, // Changed to array
+            kiwify_product_ids: kiwifyProductIds,
             price 
         };
 
@@ -163,7 +168,13 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
                 
                 <div className="border-t border-gray-700 pt-6">
                     <h3 className="text-lg font-bold mb-4">Configuração de Venda</h3>
-                    <div className="flex items-center mb-4">
+                    
+                    <div>
+                        <label htmlFor="sales_page_url" className="block text-sm font-medium text-gray-300 mb-2">Link da Página de Vendas</label>
+                        <input type="url" id="sales_page_url" value={salesPageUrl} onChange={(e) => setSalesPageUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/20 border border-white/20 rounded-md py-2 px-4 text-white" />
+                    </div>
+
+                    <div className="flex items-center my-4">
                         <input type="checkbox" id="is_for_sale" checked={isForSale} onChange={(e) => setIsForSale(e.target.checked)} className="h-4 w-4 text-red-600 bg-gray-800 border-gray-600 rounded focus:ring-red-500" />
                         <label htmlFor="is_for_sale" className="ml-2 block text-sm text-gray-300">Disponível para venda</label>
                     </div>
@@ -212,6 +223,5 @@ const CourseEditor: React.FC<CourseEditorProps> = ({ onClose, onCourseSaved, cou
         </>
     )
 }
-
 
 export default CourseEditor;
