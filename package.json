@@ -11,14 +11,17 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0",
     "@types/papaparse": "^5.5.1",
+    "@types/recharts": "^1.8.29",
     "@vimeo/player": "^2.29.7",
+    "date-fns": "^4.1.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-dropzone": "^14.3.8",
     "react-hot-toast": "^2.6.0",
     "react-player": "^3.4.0",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "recharts": "^3.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
