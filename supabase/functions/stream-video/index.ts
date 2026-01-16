@@ -1,4 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
+import { S3Client, GetObjectCommand } from 'npm:@aws-sdk/client-s3@3.592.0';
+import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@3.592.0';
 
 // This function handles CORS headers for all responses.
 const handleCors = (response: Response): Response => {
@@ -28,11 +30,11 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const serviceRoleKey = Deno.env.get('CUSTOM_SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("CRITICAL: Supabase environment variables SUPABASE_URL or SUPABASE_ANON_KEY are not set.");
-    const errorBody = JSON.stringify({ error: "Server configuration error" });
-    return handleCors(new Response(errorBody, { status: 500 }));
+    return handleCors(new Response(JSON.stringify({ error: "Server configuration error" }), { status: 500 }));
   }
 
   try {
@@ -49,47 +51,67 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-      console.error("-------------------------------------------------------");
-      console.error("--- AUTHENTICATION FAILED ---");
-      console.error("Attempted to connect to Supabase project URL:", supabaseUrl);
-      console.error("Full authentication error object:", JSON.stringify(userError, null, 2));
-      console.error("-------------------------------------------------------");
-      
-      const errorBody = JSON.stringify({ error: "Invalid or expired token" });
-      return handleCors(new Response(errorBody, { status: 401 }));
+      console.error("Authentication failed for token.");
+      return handleCors(new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401 }));
     }
 
-    // 3. If authentication is successful, proceed to stream the video.
-    const videoFile = atob(encodedFile);
-    const videoBaseUrl = Deno.env.get('B2_VIDEO_BASE_URL') || 'https://f005.backblazeb2.com/file/seoflix/';
-    const videoUrl = `${videoBaseUrl}${videoFile}`;
+    // 3. Authenticated! Now fetch B2 credentials to generate a signed URL.
+    // We use a Service Role client here to access the 'api_configs' table securely.
+    const adminSupabase = createClient(supabaseUrl, serviceRoleKey!);
     
-    const range = req.headers.get("Range");
-    const headers = new Headers();
-    if (range) {
-      headers.set("Range", range);
+    const { data: apiConfigData, error: apiConfigError } = await adminSupabase
+      .from('api_configs')
+      .select('*')
+      .eq('name', 'Backblaze B2')
+      .single();
+
+    if (apiConfigError || !apiConfigData || !apiConfigData.credentials) {
+      console.error("Backblaze B2 config missing:", apiConfigError);
+      // Fallback or error? For now error, as proxying is too slow.
+      return handleCors(new Response(JSON.stringify({ error: "Storage configuration missing" }), { status: 500 }));
     }
 
-    const videoResponse = await fetch(videoUrl, { headers });
-
-    if (!videoResponse.ok) {
-      return handleCors(new Response(videoResponse.body, { status: videoResponse.status, headers: videoResponse.headers }));
+    const { keyId, applicationKey, endpoint, bucketName, region } = apiConfigData.credentials;
+    if (!keyId || !applicationKey || !endpoint || !bucketName || !region) {
+         console.error("Incomplete B2 credentials.");
+         return handleCors(new Response(JSON.stringify({ error: "Incomplete storage configuration" }), { status: 500 }));
     }
 
-    const responseHeaders = new Headers(videoResponse.headers);
-    responseHeaders.set("Cache-Control", "public, max-age=3600");
-    responseHeaders.set("Accept-Ranges", "bytes");
-
-    const response = new Response(videoResponse.body, {
-      status: videoResponse.status,
-      headers: responseHeaders,
+    // 4. Initialize S3 Client
+    const s3Client = new S3Client({
+      credentials: {
+        accessKeyId: keyId,
+        secretAccessKey: applicationKey,
+      },
+      region: region,
+      endpoint: `https://${endpoint}`,
+      forcePathStyle: true, 
     });
 
+    const videoFile = atob(encodedFile);
+    // Ensure we don't have leading slashes if the key shouldn't have them
+    const fileKey = videoFile.startsWith('/') ? videoFile.substring(1) : videoFile;
+
+    // 5. Generate Signed URL (valid for 1 hour)
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: fileKey,
+    });
+
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+
+    // 6. Redirect the client to the direct B2 URL
+    const response = new Response(null, {
+      status: 302,
+      headers: {
+        "Location": signedUrl,
+      }
+    });
     return handleCors(response);
 
   } catch (error) {
-    console.error("FATAL PROXY ERROR:", error);
-    const errorBody = JSON.stringify({ error: "Failed to proxy video." });
+    console.error("FATAL STREAMING ERROR:", error);
+    const errorBody = JSON.stringify({ error: "Failed to process video request." });
     return handleCors(new Response(errorBody, { status: 500 }));
   }
 });

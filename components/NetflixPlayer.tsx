@@ -32,6 +32,7 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, shortTitle, longTitl
   const [showControls, setShowControls] = useState(true);
   const hideControlsTimeout = useRef<number | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const togglePlayLock = useRef(false);
 
   useEffect(() => {
     if (!url) return;
@@ -88,15 +89,25 @@ const NetflixPlayer: React.FC<NetflixPlayerProps> = ({ url, shortTitle, longTitl
   }, []);
 
   const handleTogglePlay = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(e => console.error("Video play failed:", e));
-        setShowControls(true);
-      } else {
-        videoRef.current.pause();
-        setShowControls(true);
-      }
+    if (!videoRef.current || togglePlayLock.current) return;
+
+    setShowControls(true);
+    togglePlayLock.current = true;
+
+    const video = videoRef.current;
+    if (video.paused) {
+        video.play().catch(e => {
+            if (e.name !== 'AbortError') {
+                console.error("Video play failed:", e);
+            }
+        });
+    } else {
+        video.pause();
     }
+
+    setTimeout(() => {
+        togglePlayLock.current = false;
+    }, 300);
   };
   
   const handleRewind = () => {

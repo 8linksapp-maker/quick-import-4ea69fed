@@ -7,6 +7,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     signOut: () => Promise<void>;
+    invoke: (functionName: string, options?: any) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,8 +57,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [session]);
 
+    const invoke = async (functionName: string, options?: any) => {
+        try {
+            const { data, error } = await supabase.functions.invoke(functionName, options);
+
+            if (error) {
+                // Check for auth errors and handle them globally
+                if (
+                    error instanceof Error &&
+                    'status' in error &&
+                    (error.status === 401 || error.status === 403)
+                ) {
+                    console.warn(`Authentication error for function '${functionName}'. Signing out.`);
+                    await supabase.auth.signOut();
+                    window.location.href = '/login?error=session_expired';
+                    // Return a promise that never resolves to prevent further processing
+                    return new Promise(() => {});
+                }
+                throw error;
+            }
+            return data;
+        } catch (err) {
+            // This will catch the re-thrown error or other network errors
+            console.error(`Error invoking function '${functionName}':`, err);
+            // Also check for auth errors on the caught object
+            if (
+                err instanceof Error &&
+                'status' in err &&
+                (err.status === 401 || err.status === 403)
+            ) {
+                console.warn(`Authentication error for function '${functionName}'. Signing out.`);
+                await supabase.auth.signOut();
+                window.location.href = '/login?error=session_expired';
+                return new Promise(() => {});
+            }
+            throw err;
+        }
+    };
+
     const signOut = async () => {
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Error signing out, clearing session manually.');
+            // If sign out fails (e.g., due to the same 403 error),
+            // force a redirect to login which will effectively reset the state.
+            window.location.href = '/login';
+        }
     };
 
     const value = {
@@ -65,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         signOut,
+        invoke,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

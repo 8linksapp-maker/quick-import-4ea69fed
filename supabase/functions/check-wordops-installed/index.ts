@@ -64,6 +64,15 @@ serve(async (req) => {
       });
     }
 
+    // If SSH service returns an error field (e.g. connection error), return it.
+    if (responseData.error) {
+        console.error(`[DEBUG] SSH Service Error: ${responseData.error}`);
+        return new Response(JSON.stringify({ installed: false, error: responseData.error }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        });
+    }
+
     // If SSH service returns non-200 (e.g., 500 for command failure)
     if (!response.ok) {
         // This is the EXPECTED path when 'wo --version' is not found (exitCode 127 from SSH service)

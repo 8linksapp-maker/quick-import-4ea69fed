@@ -56,7 +56,7 @@ const getYouTubeId = (youtubeUrl: string) => {
 const BrowsePage: React.FC = () => {
     useDocumentTitle('Início');
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, invoke } = useAuth();
     const [detailModalCourse, setDetailModalCourse] = useState<(Course & { initialModuleId?: string }) | null>(null);
     const [heroCourse, setHeroCourse] = useState<Course | null>(null);
     const [carousels, setCarousels] = useState<{title: string, courses: Course[]}[]>([]);
@@ -150,8 +150,8 @@ const BrowsePage: React.FC = () => {
         const fetchPageData = async () => {
             setIsLoading(true);
             try {
-                const { data: configData, error: configError } = await supabase.functions.invoke('get-main-page-config');
-                if (configError) throw configError;
+                // Use the wrapped invoke function
+                const configData = await invoke('get-main-page-config');
                 const config = configData.data;
 
                 const { data: coursesData, error: coursesError } = await supabase.from('courses').select('*').eq('is_listed', true);
@@ -167,11 +167,8 @@ const BrowsePage: React.FC = () => {
                 setRawLessons(lessonsData || []);
 
                 if (user) {
-                    const { data: continueWatchingData, error: continueWatchingError } = await supabase.functions.invoke('get-continue-watching-courses');
-
-                    if (continueWatchingError) {
-                        console.error('Error fetching continue watching data:', continueWatchingError);
-                    }
+                    // Use the wrapped invoke function
+                    const continueWatchingData = await invoke('get-continue-watching-courses');
 
                     if (continueWatchingData && continueWatchingData.data) {
                         const continueWatchingCards: Course[] = continueWatchingData.data.map((item: any) => {
@@ -258,6 +255,12 @@ const BrowsePage: React.FC = () => {
                     setCarousels(orderedCarousels);
                 }
             } catch (error: any) {
+                // The global handler will catch auth errors and redirect.
+                // Other errors will be caught here.
+                if (error && error.message.includes('session_expired')) {
+                    // This error is handled globally, no need to set a local error message
+                    return;
+                }
                 console.error('Fetch Page Data Error:', error);
                 setErrorMessage(error.message);
             } finally {
@@ -266,7 +269,7 @@ const BrowsePage: React.FC = () => {
         };
 
         fetchPageData();
-    }, [user?.id]);
+    }, [user?.id, invoke]);
 
     useEffect(() => {
         if (!isLoading && carousels.length > 0 && rawLessons.length > 0 && !durationsUpdated) {

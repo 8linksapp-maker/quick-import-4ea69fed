@@ -39,6 +39,20 @@ const AddWpSiteForm: React.FC<AddWpSiteFormProps> = ({ onWpSiteAdded, onCancel }
     <form onSubmit={handleSaveSite}>
       <InputField label="URL do Site" id="siteUrl" type="text" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} required />
       <InputField label="Usuário do WordPress" id="wpUsername" type="text" value={wpUsername} onChange={(e) => setWpUsername(e.target.value)} required />
+      
+      <div className="bg-yellow-900/20 border border-yellow-600/30 p-3 rounded mb-4 text-sm text-yellow-200/90">
+          <p className="mb-2"><strong>Atenção:</strong> Não utilize sua senha de login normal.</p>
+          <p className="mb-2">Para conectar, você precisa criar uma <strong>Senha de Aplicação</strong> no seu WordPress.</p>
+          <a 
+            href="https://wordpress.com/support/security/two-step-authentication/application-specific-passwords/#site-specific-application-passwords" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-blue-400 hover:text-blue-300 hover:underline"
+          >
+            Ver tutorial de como criar &rarr;
+          </a>
+      </div>
+
       <InputField label="Senha da Aplicação" id="applicationPassword" type="password" value={applicationPassword} onChange={(e) => setApplicationPassword(e.target.value)} required />
       <div className="flex justify-end items-center gap-4 mt-6">
         <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>

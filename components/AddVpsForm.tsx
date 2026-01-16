@@ -32,10 +32,36 @@ const AddVpsForm = ({ onVpsAdded, onCancel }) => {
   
     return (
       <form onSubmit={handleSaveVps}>
-        <InputField label="Host" id="host" type="text" value={host} onChange={(e) => setHost(e.target.value)} required />
-        <InputField label="Port" id="port" type="number" value={port} onChange={(e) => setPort(parseInt(e.target.value))} required />
-        <InputField label="Username" id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
-        <InputField label="Password" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <div className="bg-blue-900/20 border border-blue-600/30 p-3 rounded mb-6 text-sm text-blue-200/90">
+            <p className="flex items-center gap-2">
+                <strong>Recomendação de Sistema Operacional:</strong>
+            </p>
+            <p className="mt-1">
+                Para garantir o funcionamento correto de todas as automações (WordOps, SSL, etc), recomendamos fortemente que sua VPS utilize o sistema <strong>Ubuntu 20.04 LTS</strong> ou <strong>22.04 LTS</strong>.
+            </p>
+            <p className="mt-1 text-xs opacity-80">Outros sistemas baseados em Debian podem funcionar, mas não são garantidos.</p>
+        </div>
+
+        <div className="mb-4">
+            <InputField label="IP do Servidor (Host)" id="host" type="text" value={host} onChange={(e) => setHost(e.target.value)} required />
+            <p className="text-xs text-gray-400 mt-1">Insira o endereço IP numérico do seu servidor (ex: 192.168.1.1).</p>
+        </div>
+        
+        <div className="mb-4">
+            <InputField label="Porta" id="port" type="number" value={port} onChange={(e) => setPort(parseInt(e.target.value))} required />
+            <p className="text-xs text-gray-400 mt-1">A porta padrão SSH geralmente é 22.</p>
+        </div>
+
+        <div className="mb-4">
+            <InputField label="Usuário do Servidor (Username)" id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <p className="text-xs text-gray-400 mt-1">O login de acesso ao servidor (geralmente 'root'). <strong>NÃO</strong> é o login da sua conta na empresa de hospedagem.</p>
+        </div>
+
+        <div className="mb-4">
+            <InputField label="Senha do Servidor (Password)" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <p className="text-xs text-gray-400 mt-1">A senha de acesso ao servidor (geralmente senha root). <strong>NÃO</strong> é a senha da sua conta na empresa de hospedagem.</p>
+        </div>
+
         <div className="flex justify-end items-center gap-4 mt-6">
           <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">Cancelar</button>
           <button type="submit" disabled={loading} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-500">
